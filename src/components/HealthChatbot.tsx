@@ -161,7 +161,7 @@ export default function HealthChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.18 }}
-            className="fixed bottom-24 right-6 z-50 flex h-[520px] max-h-[calc(100dvh-8rem)] w-96 max-w-[92vw] flex-col overflow-hidden rounded-3xl border border-[#262630] bg-[#111116] text-zinc-100 shadow-2xl"
+            className="fixed bottom-44 right-4 z-50 flex h-[520px] max-h-[calc(100dvh-13rem)] w-96 max-w-[92vw] flex-col overflow-hidden rounded-3xl border border-[#262630] bg-[#111116] text-zinc-100 shadow-2xl sm:right-6"
           >
             <header className="flex items-center justify-between gap-3 border-b border-[#262630] px-4 py-3">
               <div className="min-w-0">
@@ -270,7 +270,8 @@ export default function HealthChatbot() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close Jo-Fit Health Coach' : 'Open Jo-Fit Health Coach'}
         aria-expanded={open}
-        className="fixed bottom-6 right-6 z-50 grid h-14 w-14 place-items-center rounded-full border border-cyber-emerald/60 bg-[#16161C] text-cyber-cyan shadow-[0_0_22px_rgba(0,229,255,0.35)] transition hover:border-cyber-cyan hover:shadow-[0_0_28px_rgba(0,230,118,0.5)]"
+        // Sits above the bottom navigation bar.
+        className="fixed bottom-24 right-4 z-50 grid h-14 w-14 sm:right-6 place-items-center rounded-full border border-cyber-emerald/60 bg-[#16161C] text-cyber-cyan shadow-[0_0_22px_rgba(0,229,255,0.35)] transition hover:border-cyber-cyan hover:shadow-[0_0_28px_rgba(0,230,118,0.5)]"
       >
         <MessageCircle className="h-6 w-6" aria-hidden />
         <span

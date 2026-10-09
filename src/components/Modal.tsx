@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { cn } from '../lib/cn';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -80,9 +81,13 @@ export default function Modal({ open, onClose, title, children, size = 'max-w-lg
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`flex max-h-[calc(100dvh-2rem)] w-full ${size} flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-100 shadow-2xl ${panelClassName}`}
+        className={cn(
+          'flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface text-zinc-100 shadow-2xl',
+          size,
+          panelClassName,
+        )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <h2 id={titleId} className="text-lg font-bold leading-tight">
             {title}
           </h2>
@@ -90,7 +95,7 @@ export default function Modal({ open, onClose, title, children, size = 'max-w-lg
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-m-1 rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            className="-m-1 rounded-lg p-1 text-zinc-400 hover:bg-surface-2 hover:text-zinc-100"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>

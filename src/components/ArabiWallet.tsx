@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowRightLeft, CheckCircle2, Gem, Ticket } from 'lucide-react';
+import ArabBankLogo from './ArabBankLogo';
 import Modal from './Modal';
 import { arabBankVouchers, FIT_TO_ARABI_RATE, type PartnerVoucher } from '../data/mockData';
 
@@ -48,44 +49,52 @@ export default function ArabiWallet({ fitPoints, arabiRewardPoints, hydrated, on
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="rounded-2xl border border-cyber-gold/30 bg-bank-navy p-5 shadow-glow-gold sm:p-6">
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-xl border border-cyber-gold/50 bg-cyber-gold/10">
-            <Gem className="h-6 w-6 text-cyber-gold" aria-hidden />
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyber-gold/80">Arab Bank</p>
-            <h2 className="text-xl font-bold text-white">Arabi Wellness Wallet</h2>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold text-zinc-100">Rewards &amp; Redemptions</h1>
+
+      <section className="rounded-2xl border border-cyber-gold/30 bg-gradient-to-br from-bank-navy to-surface p-5 shadow-glow-gold">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl border border-cyber-gold/50 bg-cyber-gold/10">
+              <Gem className="h-5 w-5 text-cyber-gold" aria-hidden />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-sky-100/70">Arab Bank</p>
+              <h2 className="text-lg font-bold text-white">Arabi Wellness Wallet</h2>
+            </div>
           </div>
+          <ArabBankLogo size="lg" />
         </div>
 
-        <div className="mt-6">
+        <div className="mt-5">
           {hydrated ? (
-            <p className="font-mono text-4xl font-bold tabular-nums text-white sm:text-5xl">
-              {fmt(fitPoints)} <span className="text-lg font-semibold text-cyber-gold sm:text-xl">Arabi Fit Points</span>
+            <p className="font-mono text-4xl font-black tabular-nums text-cyber-gold sm:text-5xl">
+              {fmt(fitPoints)} <span className="text-base font-bold text-white sm:text-lg">Arabi Fit Points</span>
             </p>
           ) : (
             <span className="block h-12 w-64 max-w-full animate-pulse rounded bg-white/10" aria-hidden />
           )}
-          <p className="mt-1 text-sm text-sky-100/70">Earned via verified biomechanics</p>
+          <p className="mt-1 text-xs font-medium text-sky-100/70">Earned via verified biomechanics</p>
         </div>
       </section>
 
-      <section aria-labelledby="convert-heading" className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+      <section aria-labelledby="convert-heading" className="rounded-2xl border border-line bg-surface p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 id="convert-heading" className="flex items-center gap-2 font-semibold text-zinc-100">
-              <ArrowRightLeft className="h-4 w-4 text-cyber-cyan" aria-hidden /> Convert to Arab Bank Reward Points
-            </h3>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              {fmt(FIT_TO_ARABI_RATE.fit)} Fit Pts = {fmt(FIT_TO_ARABI_RATE.arabi)} Arabi Points
-            </p>
+          <div className="flex items-start gap-3">
+            <ArabBankLogo size="sm" className="mt-0.5" />
+            <div>
+              <h3 id="convert-heading" className="flex items-center gap-2 font-bold text-zinc-100">
+                <ArrowRightLeft className="h-4 w-4 text-cyber-emerald" aria-hidden /> Convert to Arab Bank Points
+              </h3>
+              <p className="mt-0.5 text-xs font-medium text-zinc-400">
+                {fmt(FIT_TO_ARABI_RATE.fit)} Fit Pts = {fmt(FIT_TO_ARABI_RATE.arabi)} Bank Pts
+              </p>
+            </div>
           </div>
           <div className="text-right">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">Reward balance</p>
-            <p className="font-mono text-lg font-bold tabular-nums text-cyber-gold">
-              {hydrated ? fmt(arabiRewardPoints) : '—'} <span className="text-xs text-zinc-400">Arabi Pts</span>
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">Bank balance</p>
+            <p className="font-mono text-lg font-black tabular-nums text-cyber-gold">
+              {hydrated ? fmt(arabiRewardPoints) : '—'} <span className="text-xs font-medium text-zinc-400">pts</span>
             </p>
           </div>
         </div>
@@ -106,7 +115,7 @@ export default function ArabiWallet({ fitPoints, arabiRewardPoints, hydrated, on
             setConvertMessage(null);
           }}
           aria-valuetext={`${fmt(amount)} Fit Points`}
-          className="mt-2 w-full accent-cyber-cyan disabled:opacity-40"
+          className="mt-2 w-full accent-cyber-emerald disabled:opacity-40"
         />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <p className="font-mono text-sm tabular-nums text-zinc-200">
@@ -116,7 +125,7 @@ export default function ArabiWallet({ fitPoints, arabiRewardPoints, hydrated, on
             type="button"
             onClick={handleConvert}
             disabled={amount === 0}
-            className="rounded-xl bg-cyber-cyan px-5 py-2.5 text-sm font-extrabold text-zinc-950 shadow-glow-cyan hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+            className="rounded-xl bg-cyber-emerald px-5 py-2.5 text-sm font-extrabold text-zinc-950 shadow-glow-emerald hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
             Convert Now
           </button>
@@ -131,40 +140,38 @@ export default function ArabiWallet({ fitPoints, arabiRewardPoints, hydrated, on
       </section>
 
       <section aria-labelledby="vouchers-heading">
-        <h3 id="vouchers-heading" className="mb-3 flex items-center gap-2 font-semibold text-zinc-100">
-          <Ticket className="h-4 w-4 text-cyber-gold" aria-hidden /> Partner Vouchers
+        <h3 id="vouchers-heading" className="mb-3 flex items-center gap-2 text-lg font-bold text-zinc-100">
+          <Ticket className="h-5 w-5 text-cyber-gold" aria-hidden /> Local Deals
         </h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <ul className="flex flex-col gap-2">
           {arabBankVouchers.map((voucher) => {
             const shortfall = voucher.costPoints - fitPoints;
             const affordable = hydrated && shortfall <= 0;
             return (
-              <article key={voucher.id} className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-zinc-700 bg-zinc-800 font-bold text-zinc-200"
-                  >
-                    {initials(voucher.partner)}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold uppercase tracking-wide text-zinc-400">{voucher.partner}</p>
-                    <h4 className="text-sm font-semibold leading-snug text-zinc-100">{voucher.title}</h4>
-                  </div>
+              <li key={voucher.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+                <span
+                  aria-hidden
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-surface-2 font-black text-cyber-emerald"
+                >
+                  {initials(voucher.partner)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-zinc-100">{voucher.partner}</p>
+                  <p className="truncate text-xs font-medium text-zinc-400">{voucher.title}</p>
+                  <p className="font-mono text-sm font-black tabular-nums text-cyber-gold">{fmt(voucher.costPoints)} pts</p>
                 </div>
-                <p className="font-mono text-lg font-bold tabular-nums text-cyber-gold">{fmt(voucher.costPoints)} pts</p>
                 <button
                   type="button"
                   onClick={() => handleRedeem(voucher)}
                   disabled={!affordable}
-                  className="mt-auto rounded-xl border border-cyber-gold/60 py-2.5 text-sm font-bold text-cyber-gold hover:bg-cyber-gold/10 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:hover:bg-transparent"
+                  className="shrink-0 rounded-xl border border-cyber-gold/60 px-3 py-2 text-xs font-bold text-cyber-gold hover:bg-cyber-gold/10 disabled:cursor-not-allowed disabled:border-line disabled:text-zinc-500 disabled:hover:bg-transparent"
                 >
-                  {!hydrated || affordable ? 'Redeem' : `Need ${fmt(shortfall)} more pts`}
+                  {!hydrated || affordable ? 'Redeem' : `Need ${fmt(shortfall)}`}
                 </button>
-              </article>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </section>
 
       <Modal open={redeemed !== null} onClose={() => setRedeemed(null)} title="Voucher Redeemed" size="max-w-sm">
@@ -175,14 +182,14 @@ export default function ArabiWallet({ fitPoints, arabiRewardPoints, hydrated, on
               <MockQr value={redeemed.code} />
             </div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Demo QR · not scannable</p>
-            <p className="font-mono text-2xl font-bold tracking-wider text-cyber-cyan">{redeemed.code}</p>
+            <p className="font-mono text-2xl font-black tracking-wider text-cyber-emerald">{redeemed.code}</p>
             <p className="text-xs text-zinc-400">
               {fmt(redeemed.voucher.costPoints)} pts deducted · show this code at {redeemed.voucher.partner}
             </p>
             <button
               type="button"
               onClick={() => setRedeemed(null)}
-              className="mt-1 w-full rounded-xl bg-cyber-cyan py-2.5 text-sm font-extrabold text-zinc-950 hover:brightness-110"
+              className="mt-1 w-full rounded-xl bg-cyber-emerald py-2.5 text-sm font-extrabold text-zinc-950 hover:brightness-110"
             >
               Done
             </button>

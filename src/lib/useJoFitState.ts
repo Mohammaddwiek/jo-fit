@@ -9,7 +9,7 @@ import {
   type PartnerVoucher,
 } from '../data/mockData';
 import { currentUserRank } from './leaderboard';
-import type { SurveyInput, WorkoutPlan } from './planGenerator';
+import { generatePlan, PLAN_VERSION, type SurveyInput, type WorkoutPlan } from './planGenerator';
 import { calculateNextSession, type SessionStatus, type UserProfile } from './progressiveOverload';
 import type { SquatSetResult, SquatWorkoutResult } from './workoutConfig';
 
@@ -72,7 +72,7 @@ const isNumber = (value: unknown): value is number => typeof value === 'number' 
 const numberOr = (value: unknown, fallback: number) => (isNumber(value) ? value : fallback);
 
 /** Merges stored data over the seed, keeping only fields with the expected shape. */
-function sanitize(raw: unknown): JoFitData {
+export function sanitize(raw: unknown): JoFitData {
   if (!isRecord(raw)) return SEED;
   const storedProfile = isRecord(raw.profile) ? raw.profile : {};
   const experience = storedProfile.experience;
@@ -92,6 +92,17 @@ function sanitize(raw: unknown): JoFitData {
   const contact = raw.emergencyContact;
   const plan = raw.plan;
   const survey = raw.survey;
+  const validSurvey =
+    isRecord(survey) && Array.isArray(survey.injuries) && isNumber(survey.age) && isNumber(survey.daysAvailable)
+      ? (survey as unknown as SurveyInput)
+      : null;
+  // Plans saved before the 7-day schedule are regenerated from the saved survey (generation is deterministic).
+  const storedPlanIsCurrent =
+    isRecord(plan) &&
+    plan.version === PLAN_VERSION &&
+    isRecord(plan.planSummary) &&
+    Array.isArray(plan.schedule) &&
+    Array.isArray(plan.warnings);
 
   return {
     profile,
@@ -106,11 +117,8 @@ function sanitize(raw: unknown): JoFitData {
       isRecord(contact) && typeof contact.name === 'string' && typeof contact.phone === 'string'
         ? { name: contact.name, phone: contact.phone }
         : null,
-    survey: isRecord(survey) && Array.isArray(survey.injuries) ? (survey as unknown as SurveyInput) : null,
-    plan:
-      isRecord(plan) && isRecord(plan.planSummary) && Array.isArray(plan.schedule) && Array.isArray(plan.warnings)
-        ? (plan as unknown as WorkoutPlan)
-        : null,
+    survey: validSurvey,
+    plan: storedPlanIsCurrent ? (plan as unknown as WorkoutPlan) : validSurvey ? generatePlan(validSurvey) : null,
   };
 }
 

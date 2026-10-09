@@ -4,6 +4,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        obsidian: '#0B0B0E',
+        surface: '#16161C',
+        'surface-2': '#111116',
+        line: '#262630',
+        alert: '#EF4444',
         cyber: {
           cyan: '#00E5FF',
           emerald: '#00E676',
@@ -21,7 +26,7 @@ module.exports = {
         'glow-cyan': '0 0 20px rgba(0, 229, 255, 0.45)',
         'glow-gold': '0 0 20px rgba(245, 158, 11, 0.5)',
         'glow-emerald': '0 0 20px rgba(0, 230, 118, 0.45)',
-        'glow-red': '0 0 20px rgba(244, 63, 94, 0.55)',
+        'glow-red': '0 0 22px rgba(239, 68, 68, 0.55)',
       },
       animation: {
         'pulse-slow': 'pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',

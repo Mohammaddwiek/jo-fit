@@ -8,16 +8,16 @@
 
 html,
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply bg-obsidian text-zinc-100 antialiased;
 }
 
 ::selection {
-  background: rgba(0, 229, 255, 0.3);
+  background: rgba(0, 230, 118, 0.3);
   color: #ffffff;
 }
 
 :focus-visible {
-  outline: 2px solid #00e5ff;
+  outline: 2px solid #00e676;
   outline-offset: 2px;
 }
 
@@ -29,4 +29,11 @@ input[type='number']::-webkit-outer-spin-button {
 }
 input[type='number'] {
   -moz-appearance: textfield;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

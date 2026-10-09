@@ -539,49 +539,82 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
         )}
       </div>
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-cyber-cyan/25 bg-gradient-to-br from-[#0A1824] to-[#050C14] p-4">
-        <div className="flex flex-wrap justify-between gap-3">
-          <Stat label={isMultiSet ? `Reps · Set ${setNumber}` : 'Reps'} value={`${pad2(validReps)} / ${pad2(config.targetReps)}`} />
-          <Stat label="Form Accuracy" value={totalReps > 0 ? `${formAccuracy}%` : '--%'} />
-          <Stat label={viewMode === 'FRONT' ? 'Knee Angle (est.)' : 'Knee Angle'} value={currentAngle !== null ? `${currentAngle}°` : '--°'} />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-baseline gap-2 rounded-full border border-cyber-cyan/40 bg-cyber-cyan/5 px-3.5 py-2">
-            <span className="text-xs font-semibold text-zinc-400">Arab Bank</span>
-            <span className="font-mono font-bold tabular-nums text-cyber-emerald">Potential +{potentialPoints} Pts</span>
+      <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4">
+        <div className="grid grid-cols-3 items-center gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+              {isMultiSet ? `Reps · Set ${setNumber}` : 'Reps'}
+            </p>
+            <p className="font-mono font-black tabular-nums text-zinc-100">
+              <span className="text-4xl">{pad2(validReps)}</span>
+              <span className="text-lg text-zinc-400"> / {pad2(config.targetReps)}</span>
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {isMultiSet && (
-              <button
-                type="button"
-                onClick={handleEndWorkout}
-                className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
-              >
-                End Workout
-              </button>
-            )}
+          <div className="flex justify-center">
+            <AccuracyRing value={totalReps > 0 ? formAccuracy : null} />
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+              {viewMode === 'FRONT' ? 'Knee (est.)' : 'Knee Angle'}
+            </p>
+            <p className="font-mono text-2xl font-black tabular-nums text-cyber-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
+              {currentAngle !== null ? `${currentAngle}°` : '--°'}
+            </p>
+            <p className="font-mono text-sm font-black tabular-nums text-cyber-gold">+{potentialPoints} pts</p>
+            <p className="text-[10px] font-medium text-zinc-500">potential · Arab Bank</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {isMultiSet && (
             <button
               type="button"
-              onClick={handleFinishSet}
-              disabled={resting}
-              className="rounded-xl bg-cyber-cyan px-5 py-3 text-sm font-extrabold text-zinc-950 shadow-glow-cyan transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={handleEndWorkout}
+              className="flex-1 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
             >
-              {isMultiSet && isLastSet ? 'Finish Workout' : 'Finish Set'}
+              End Workout
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={handleFinishSet}
+            disabled={resting}
+            className="flex-1 rounded-xl bg-cyber-emerald px-5 py-3 text-sm font-extrabold text-zinc-950 shadow-glow-emerald transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isMultiSet && isLastSet ? 'Finish Workout' : 'Finish Set'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+const RING_RADIUS = 30;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/** Circular form-accuracy gauge, as in the mockup's tracker screen. */
+function AccuracyRing({ value }: { value: number | null }) {
+  const progress = value === null ? 0 : Math.min(100, Math.max(0, value)) / 100;
   return (
-    <div className="flex min-w-0 flex-[1_1_120px] flex-col gap-1">
-      <span className="text-[11px] uppercase tracking-[0.15em] text-zinc-400">{label}</span>
-      <span className="font-mono text-3xl font-bold tabular-nums text-cyber-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
-        {value}
-      </span>
+    <div className="relative h-20 w-20" role="img" aria-label={value === null ? 'Form accuracy: no reps yet' : `Form accuracy ${value}%`}>
+      <svg viewBox="0 0 72 72" className="h-full w-full -rotate-90">
+        <circle cx="36" cy="36" r={RING_RADIUS} fill="none" stroke="#262630" strokeWidth="7" />
+        <circle
+          cx="36"
+          cy="36"
+          r={RING_RADIUS}
+          fill="none"
+          stroke="#00E676"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={RING_CIRCUMFERENCE}
+          strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
+          className="transition-[stroke-dashoffset] duration-500 [filter:drop-shadow(0_0_4px_rgba(0,230,118,0.7))]"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-mono text-lg font-black tabular-nums text-zinc-100">{value === null ? '--' : `${value}%`}</span>
+        <span className="text-[9px] font-medium uppercase text-zinc-400">Form</span>
+      </div>
     </div>
   );
 }

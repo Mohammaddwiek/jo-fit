@@ -35,10 +35,26 @@ export interface PlanExercise {
   kind: 'squat' | 'other';
 }
 
-export interface PlanDay {
+export interface TrainingDay {
+  type: 'training';
   dayTitle: string;
   exercises: PlanExercise[];
 }
+
+export interface RecoveryDay {
+  type: 'recovery';
+  dayTitle: string;
+  recovery: {
+    kind: 'active' | 'full';
+    title: string;
+    items: string[];
+  };
+}
+
+export type PlanDay = TrainingDay | RecoveryDay;
+
+export const PLAN_VERSION = 2;
+export const DAYS_IN_WEEK = 7;
 
 export interface PlanSummary {
   splitName: string;
@@ -56,6 +72,7 @@ export interface PlanWarning {
 }
 
 export interface WorkoutPlan {
+  version: typeof PLAN_VERSION;
   planSummary: PlanSummary;
   /** Rule 1 intensity label, e.g. "Moderate-High". */
   intensity: string;
@@ -219,7 +236,49 @@ const SPLITS: Record<number, { name: string; days: DayTemplate[] }> = {
   5: { name: '5-Day Hybrid (Lower / Upper / Full Body)', days: [LOWER_A, UPPER_A, LOWER_B, UPPER_B, FULL_A] },
 };
 
+/** Training (T) / recovery (R) placement across Day 1 (Sunday) → Day 7 (Saturday). */
+const WEEK_PATTERNS: Record<number, string> = {
+  2: 'TRRTRRR',
+  3: 'TRTRTRR',
+  4: 'TTRTTRR',
+  5: 'TTTRTTR',
+};
+
+const ACTIVE_RECOVERY = {
+  kind: 'active' as const,
+  title: 'Active Recovery & Mobility',
+  items: [
+    '20-min light walk (conversational pace)',
+    'Hip & hamstring mobility: 90/90 hip switches, hamstring floss, couch stretch — 2 rounds',
+    'Hydration: 2.5 L water across the day',
+    'Arab Bank Wellness Goal: protect your streak — rest is part of training',
+  ],
+};
+
+const FULL_REST = {
+  kind: 'full' as const,
+  title: 'Full Rest & Muscle Synthesis',
+  items: [
+    'No structured training — let muscle protein synthesis do its work',
+    'Optional 20-min easy walk',
+    'Sleep 7–9 hours and drink 2.5 L water',
+    'Arab Bank Wellness Goal: recharge for your next verified session',
+  ],
+};
+
 const INJURY_PRIORITY: Exclude<Injury, 'None'>[] = ['Knee', 'Lower Back', 'Shoulder'];
+
+export const isTrainingDay = (day: PlanDay): day is TrainingDay => day.type === 'training';
+
+/** Finds an exercise anywhere in the week by id. */
+export function findExercise(plan: WorkoutPlan, id: string): PlanExercise | null {
+  for (const day of plan.schedule) {
+    if (!isTrainingDay(day)) continue;
+    const match = day.exercises.find((exercise) => exercise.id === id);
+    if (match) return match;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Generator
@@ -338,12 +397,26 @@ export function generatePlan(input: SurveyInput): WorkoutPlan {
   const isMobilityGoal = input.goal === 'Mobility & Joint Health';
   const split = SPLITS[days];
 
-  const schedule: PlanDay[] = split.days.map((day, index) => {
+  // Fill the week: training templates go into the T slots in order; R slots become recovery days.
+  // A rest day right after training is active recovery; a second rest day in a row (or Day 7) is full rest.
+  const templates = [...split.days];
+  const pattern = WEEK_PATTERNS[days];
+  const schedule: PlanDay[] = Array.from(pattern, (slot, index): PlanDay => {
     const dayNumber = index + 1;
-    const exercises = day.exercises.map((template) => buildExercise(template, dayNumber));
-    if (ageGuardrail) exercises.unshift(warmup(dayNumber));
-    if (isMobilityGoal) exercises.push(mobilityFlow(dayNumber));
-    return { dayTitle: `Day ${dayNumber}: ${day.title}`, exercises };
+    if (slot === 'T') {
+      const day = templates.shift()!;
+      const exercises = day.exercises.map((template) => buildExercise(template, dayNumber));
+      if (ageGuardrail) exercises.unshift(warmup(dayNumber));
+      if (isMobilityGoal) exercises.push(mobilityFlow(dayNumber));
+      return { type: 'training', dayTitle: `Day ${dayNumber}: ${day.title}`, exercises };
+    }
+    const afterTraining = index > 0 && pattern[index - 1] === 'T';
+    const recovery = afterTraining && dayNumber !== DAYS_IN_WEEK ? ACTIVE_RECOVERY : FULL_REST;
+    return {
+      type: 'recovery',
+      dayTitle: `Day ${dayNumber}: ${recovery.title}`,
+      recovery: { ...recovery, items: [...recovery.items] },
+    };
   });
 
   const warnings: PlanWarning[] = [];
@@ -380,10 +453,13 @@ export function generatePlan(input: SurveyInput): WorkoutPlan {
     injuries.length === 0 ? 'No injuries reported — standard progression' : `${injuries.join(' + ')} safeguards active`;
 
   return {
+    version: PLAN_VERSION,
     planSummary: {
       splitName: isMobilityGoal ? `${split.name} + Mobility` : split.name,
       daysPerWeek: days,
-      overallDifficulty: maxDifficulty(schedule.flatMap((day) => day.exercises.map((e) => e.difficulty))),
+      overallDifficulty: maxDifficulty(
+        schedule.filter(isTrainingDay).flatMap((day) => day.exercises.map((e) => e.difficulty)),
+      ),
       injuryProtocol,
     },
     intensity,

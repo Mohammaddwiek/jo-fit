@@ -80,7 +80,7 @@ function validateStep(step: number, form: FormState): Errors {
   return errors;
 }
 
-const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900';
+const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-emerald focus-visible:ring-offset-2 focus-visible:ring-offset-surface';
 
 export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGenerated }: WorkoutSurveyModalProps) {
   const [step, setStep] = useState(0);
@@ -145,8 +145,8 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
         <ol className="flex gap-2" aria-label="Survey progress">
           {STEP_TITLES.map((title, index) => (
             <li key={title} className="flex-1" aria-current={index === step ? 'step' : undefined}>
-              <span className={`block h-1.5 rounded-full ${index <= step ? 'bg-cyber-cyan shadow-glow-cyan' : 'bg-zinc-800'}`} />
-              <span className={`mt-1.5 block text-[11px] ${index === step ? 'text-cyber-cyan' : 'text-zinc-500'}`}>
+              <span className={`block h-1.5 rounded-full ${index <= step ? 'bg-cyber-emerald shadow-glow-emerald' : 'bg-zinc-800'}`} />
+              <span className={`mt-1.5 block text-[11px] ${index === step ? 'text-cyber-emerald' : 'text-zinc-500'}`}>
                 {index + 1}. {title}
               </span>
             </li>
@@ -170,8 +170,8 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
                       onChange={(e) => update(field.key, e.target.value)}
                       aria-invalid={errors[field.key] ? true : undefined}
                       aria-describedby={errors[field.key] ? errorId : undefined}
-                      className={`w-full rounded-lg border bg-zinc-950 px-3 py-2.5 pr-14 font-mono text-zinc-100 ${focusRing} ${
-                        errors[field.key] ? 'border-rose-500' : 'border-zinc-700'
+                      className={`w-full rounded-lg border bg-surface-2 px-3 py-2.5 pr-14 font-mono text-zinc-100 ${focusRing} ${
+                        errors[field.key] ? 'border-rose-500' : 'border-line'
                       }`}
                     />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
@@ -261,17 +261,17 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
           {errorList.length > 0 ? `${errorList.length} error${errorList.length === 1 ? '' : 's'}: ${errorList.join(' ')}` : ''}
         </p>
 
-        <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-4">
+        <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
           <button
             type="button"
             onClick={() => (step === 0 ? onClose() : setStep(step - 1))}
-            className={`rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-zinc-500 ${focusRing}`}
+            className={`rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-zinc-500 ${focusRing}`}
           >
             {step === 0 ? 'Cancel' : 'Back'}
           </button>
           <button
             type="submit"
-            className={`rounded-xl bg-cyber-cyan px-5 py-2.5 text-sm font-extrabold text-zinc-950 shadow-glow-cyan hover:brightness-110 ${focusRing}`}
+            className={`rounded-xl bg-cyber-emerald px-5 py-2.5 text-sm font-extrabold text-zinc-950 shadow-glow-emerald hover:brightness-110 ${focusRing}`}
           >
             {step === STEP_TITLES.length - 1 ? 'Generate Plan' : 'Next'}
           </button>
@@ -294,9 +294,9 @@ interface ChoiceCardProps {
 function ChoiceCard({ name, type = 'radio', checked, onChange, title, hint, centered }: ChoiceCardProps) {
   return (
     <label
-      className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border px-3 py-2.5 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-cyber-cyan ${
+      className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border px-3 py-2.5 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-cyber-emerald ${
         centered ? 'items-center text-center' : ''
-      } ${checked ? 'border-cyber-cyan bg-cyber-cyan/10 text-cyber-cyan' : 'border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500'}`}
+      } ${checked ? 'border-cyber-emerald bg-cyber-emerald/10 text-cyber-emerald' : 'border-line bg-surface-2 text-zinc-200 hover:border-zinc-500'}`}
     >
       <input type={type} name={name} checked={checked} onChange={onChange} className="sr-only" />
       <span className="text-sm font-semibold">{title}</span>
