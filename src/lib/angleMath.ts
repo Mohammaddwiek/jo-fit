@@ -10,9 +10,14 @@ export type Point = {
   visibility?: number;
 };
 
+export type Side = 'left' | 'right';
+
+export type FrameIssue = 'OUT_OF_BOUNDS' | 'LOW_VISIBILITY';
+
 export type FrameCheck = {
   inFrame: boolean;
   reason?: string;
+  code?: FrameIssue;
 };
 
 /** MediaPipe Pose landmark indices used for framing checks. */
@@ -26,13 +31,20 @@ export const LANDMARK = {
   RIGHT_ANKLE: 28,
 } as const;
 
-const KEY_LANDMARKS: readonly number[] = Object.values(LANDMARK);
+export const LEGS: Record<Side, { hip: number; knee: number; ankle: number }> = {
+  left: { hip: LANDMARK.LEFT_HIP, knee: LANDMARK.LEFT_KNEE, ankle: LANDMARK.LEFT_ANKLE },
+  right: { hip: LANDMARK.RIGHT_HIP, knee: LANDMARK.RIGHT_KNEE, ankle: LANDMARK.RIGHT_ANKLE },
+};
 
 const MIN_VISIBILITY = 0.6;
 const MAX_ANKLE_Y = 0.92;
 const MIN_NOSE_Y = 0.08;
 
-const STEP_BACK_MESSAGE = 'STEP BACK: Ensure your head and feet are visible';
+export const STEP_BACK_MESSAGE = 'STEP BACK: Ensure your head and feet are visible';
+export const LOW_VISIBILITY_MESSAGE = 'Tracking lost: improve lighting or face the camera';
+
+const toDegrees = (radians: number) => (radians * 180) / Math.PI;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /**
  * Interior angle at joint `b` formed by segments b→a and b→c, in degrees [0, 180].
@@ -47,32 +59,53 @@ export function calculateAngle(a: Point, b: Point, c: Point): number {
   if ((abX === 0 && abY === 0) || (cbX === 0 && cbY === 0)) return 0;
 
   const radians = Math.atan2(cbY, cbX) - Math.atan2(abY, abX);
-  let degrees = Math.abs((radians * 180) / Math.PI);
+  let degrees = Math.abs(toDegrees(radians));
 
   // atan2 difference spans (-360, 360); fold into the interior angle.
   if (degrees > 180) degrees = 360 - degrees;
 
-  return Math.min(180, Math.max(0, degrees));
+  return clamp(degrees, 0, 180);
 }
 
 /**
- * Verifies the full body is visible: key landmarks are confidently detected,
- * the feet aren't cut off at the bottom, and the head isn't cut off at the top.
+ * View-independent knee flexion estimate from how far the hip has dropped relative
+ * to the knee, scaled by the standing thigh length (all in pixels).
+ *
+ * Vertical distances look the same from the front and the side, so this works when
+ * the user faces the camera, where the 2D knee angle barely changes. Standing ≈ 180°,
+ * thigh parallel ≈ 90°, hip below knee < 90°. It assumes a vertical shin, so it
+ * under-reports depth rather than over-reporting it.
+ */
+export function estimateKneeFlexion(hip: Point, knee: Point, standingThighLength: number): number {
+  if (standingThighLength <= 0) return 180;
+  const ratio = clamp((knee.y - hip.y) / standingThighLength, -1, 1);
+  return 90 + toDegrees(Math.asin(ratio));
+}
+
+/**
+ * Verifies the body is framed for tracking. With `side`, only the nose and that leg
+ * must be visible (the far leg is hidden when standing side-on); without it, both legs.
+ *
+ * Bounds are checked before visibility: MediaPipe still predicts off-screen landmarks
+ * (with low visibility), so a cut-off foot reads as "step back", not "bad lighting".
  * Landmarks without a `visibility` score are treated as not visible.
  */
-export function isUserInFrame(landmarks: Point[]): FrameCheck {
-  const notInFrame: FrameCheck = { inFrame: false, reason: STEP_BACK_MESSAGE };
+export function isUserInFrame(landmarks: Point[], side?: Side): FrameCheck {
+  const legs = side ? [LEGS[side]] : [LEGS.left, LEGS.right];
+  const required = [LANDMARK.NOSE, ...legs.flatMap((leg) => [leg.hip, leg.knee, leg.ankle])];
 
-  for (const index of KEY_LANDMARKS) {
-    const landmark = landmarks[index];
-    if (!landmark || (landmark.visibility ?? 0) < MIN_VISIBILITY) return notInFrame;
+  if (required.some((index) => !landmarks[index])) {
+    return { inFrame: false, reason: STEP_BACK_MESSAGE, code: 'OUT_OF_BOUNDS' };
   }
 
-  const leftAnkle = landmarks[LANDMARK.LEFT_ANKLE];
-  const rightAnkle = landmarks[LANDMARK.RIGHT_ANKLE];
-  if (leftAnkle.y > MAX_ANKLE_Y || rightAnkle.y > MAX_ANKLE_Y) return notInFrame;
+  const anklesCutOff = legs.some((leg) => landmarks[leg.ankle].y > MAX_ANKLE_Y);
+  if (anklesCutOff || landmarks[LANDMARK.NOSE].y < MIN_NOSE_Y) {
+    return { inFrame: false, reason: STEP_BACK_MESSAGE, code: 'OUT_OF_BOUNDS' };
+  }
 
-  if (landmarks[LANDMARK.NOSE].y < MIN_NOSE_Y) return notInFrame;
+  if (required.some((index) => (landmarks[index].visibility ?? 0) < MIN_VISIBILITY)) {
+    return { inFrame: false, reason: LOW_VISIBILITY_MESSAGE, code: 'LOW_VISIBILITY' };
+  }
 
   return { inFrame: true };
 }

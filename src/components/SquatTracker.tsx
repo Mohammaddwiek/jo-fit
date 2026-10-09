@@ -1,61 +1,57 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NormalizedLandmark, PoseLandmarker } from '@mediapipe/tasks-vision';
-import { calculateAngle, isUserInFrame, LANDMARK, type Point } from '../lib/angleMath';
+import {
+  calculateAngle,
+  estimateKneeFlexion,
+  isUserInFrame,
+  LEGS,
+  type FrameIssue,
+  type Point,
+  type Side,
+} from '../lib/angleMath';
 import { playGoodRepTone, playWarningTone } from '../lib/audioFeedback';
 import { POINTS_PER_VALID_REP } from '../lib/progressiveOverload';
+import { DEPTH_ANGLE, DESCENT_ANGLE, MIN_DESCENT_MS, STANDING_ANGLE } from '../lib/squatThresholds';
+import { summarizeSets, type SquatSetResult, type SquatWorkoutResult, type WorkoutConfig } from '../lib/workoutConfig';
 
-const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
-const MODEL_PATH =
-  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+// Self-hosted (see scripts/copy-mediapipe.mjs) so the demo doesn't depend on venue Wi-Fi.
+const WASM_PATH = '/mediapipe/wasm';
+const MODEL_PATH = '/models/pose_landmarker_lite.task';
 
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
 
-// Squat state machine thresholds (knee angle, degrees).
-const STANDING_ANGLE = 160;
-const DESCENT_ANGLE = 145;
-const DEPTH_ANGLE = 90;
 /** How far the angle must climb above its minimum before we call it the bottom. */
 const INFLECTION_DELTA = 8;
 /** Additional climb past the bottom before we call it ascending. */
 const ASCENT_DELTA = 15;
 /** Exponential smoothing factor for the raw knee angle (1 = no smoothing). */
 const ANGLE_SMOOTHING = 0.5;
+/** Smoothing for the standing thigh length used by the front-view estimate. */
+const THIGH_LENGTH_SMOOTHING = 0.1;
+/** Hip spread below this fraction of thigh length means the user is side-on. */
+const SIDE_VIEW_HIP_SPREAD = 0.35;
 
 const FEEDBACK_DURATION_MS = 2000;
 const MIN_DRAW_VISIBILITY = 0.5;
 /** Landmarks 0–10 are the face; the HUD skeleton only draws the body. */
 const FIRST_BODY_LANDMARK = 11;
 
+// Canvas can't read Tailwind classes, so the HUD colors live here.
 const CYAN = '#00E5FF';
-const AMBER = '#FFB300';
-const RED = '#FF3D57';
+const EMERALD = '#00E676';
+const AMBER = '#F59E0B';
 
 type Phase = 'STANDING' | 'DESCENDING' | 'BOTTOM' | 'ASCENDING';
-type Side = 'left' | 'right';
+type ViewMode = 'SIDE' | 'FRONT';
 type Status = 'loading' | 'ready' | 'error';
 type Connection = { start: number; end: number };
 
-const LEGS: Record<Side, { hip: number; knee: number; ankle: number }> = {
-  left: { hip: LANDMARK.LEFT_HIP, knee: LANDMARK.LEFT_KNEE, ankle: LANDMARK.LEFT_ANKLE },
-  right: { hip: LANDMARK.RIGHT_HIP, knee: LANDMARK.RIGHT_KNEE, ankle: LANDMARK.RIGHT_ANKLE },
-};
-
-export interface SquatSessionResult {
-  validReps: number;
-  badReps: number;
-  totalReps: number;
-  targetReps: number;
-  /** Share of reps that reached depth, as a percentage (0–100). */
-  formAccuracy: number;
-  pointsEarned: number;
-}
-
 export interface SquatTrackerProps {
-  targetReps?: number;
-  onFinish?: (result: SquatSessionResult) => void;
+  config: WorkoutConfig;
+  onFinish: (result: SquatWorkoutResult) => void;
 }
 
 function pickVisibleSide(landmarks: NormalizedLandmark[]): Side {
@@ -73,6 +69,8 @@ function pickVisibleSide(landmarks: NormalizedLandmark[]): Side {
 function toPixels(p: NormalizedLandmark, width: number, height: number): Point {
   return { x: p.x * width, y: p.y * height, visibility: p.visibility };
 }
+
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
 function drawSkeleton(
   ctx: CanvasRenderingContext2D,
@@ -116,7 +114,7 @@ function drawSkeleton(
 }
 
 /** Draws the knee readout. The canvas is CSS-mirrored, so the text is flipped back to stay readable. */
-function drawAngleReadout(ctx: CanvasRenderingContext2D, knee: Point, angle: number, depthReached: boolean) {
+function drawAngleReadout(ctx: CanvasRenderingContext2D, knee: Point, angle: number, color: string) {
   const label = `${Math.round(angle)}°`;
   ctx.save();
   ctx.translate(knee.x, knee.y);
@@ -127,28 +125,53 @@ function drawAngleReadout(ctx: CanvasRenderingContext2D, knee: Point, angle: num
   const y = -14;
   ctx.fillStyle = 'rgba(5, 12, 20, 0.75)';
   ctx.fillRect(x - 8, y - 22, textWidth + 16, 32);
-  ctx.fillStyle = depthReached ? '#00FF9C' : CYAN;
-  ctx.shadowColor = ctx.fillStyle;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
   ctx.shadowBlur = 10;
   ctx.fillText(label, x, y);
   ctx.restore();
 }
 
+function describeStartupError(err: unknown, stage: 'camera' | 'model'): string {
+  if (stage === 'model') return 'Could not load the pose model. Reload the page and try again.';
+  const name = err instanceof DOMException ? err.name : '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'Camera access was denied. Allow camera permissions for this site and reload.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'The camera is in use by another app (Zoom, Teams, etc.). Close it and reload.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    return 'No camera was found. Connect a webcam and reload.';
+  }
+  return 'Could not start the camera. Check your webcam and reload.';
+}
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-export default function SquatTracker({ targetReps = 10, onFinish }: SquatTrackerProps) {
+export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The animation loop reads these without re-running the setup effect.
+  const configRef = useRef(config);
+  const pausedRef = useRef(false);
+  configRef.current = config;
 
   const [status, setStatus] = useState<Status>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [inFrame, setInFrame] = useState(true);
+  const [frameIssue, setFrameIssue] = useState<FrameIssue | null>(null);
   const [phase, setPhase] = useState<Phase>('STANDING');
+  const [viewMode, setViewMode] = useState<ViewMode>('FRONT');
   const [currentAngle, setCurrentAngle] = useState<number | null>(null);
   const [validReps, setValidReps] = useState(0);
   const [badReps, setBadReps] = useState(0);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [completedSets, setCompletedSets] = useState<SquatSetResult[]>([]);
+  const [restRemaining, setRestRemaining] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; tone: 'warn' | 'info' } | null>(null);
+
+  const resting = restRemaining !== null;
+  pausedRef.current = resting;
 
   useEffect(() => {
     let cancelled = false;
@@ -162,28 +185,45 @@ export default function SquatTracker({ targetReps = 10, onFinish }: SquatTracker
       phase: 'STANDING' as Phase,
       smoothedAngle: null as number | null,
       minAngle: 180,
-      depthValid: false,
+      lockedSide: null as Side | null,
+      descentStartedAt: 0,
+      thighLength: { left: 0, right: 0 } as Record<Side, number>,
+    };
+
+    /** Releases whatever was created. Safe to call more than once. */
+    const release = () => {
+      stream?.getTracks().forEach((track) => track.stop());
+      stream = null;
+      landmarker?.close();
+      landmarker = null;
     };
 
     const enterPhase = (next: Phase) => {
       tracker.phase = next;
       setPhase(next);
+      if (next === 'STANDING') tracker.lockedSide = null;
     };
 
-    const showFeedback = (message: string) => {
-      setFeedback(message);
+    const showFeedback = (message: string, tone: 'warn' | 'info') => {
+      setFeedback({ message, tone });
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
       feedbackTimeoutRef.current = setTimeout(() => setFeedback(null), FEEDBACK_DURATION_MS);
     };
 
     const finishRep = () => {
-      if (tracker.depthValid) {
-        setValidReps((n) => n + 1);
-        playGoodRepTone();
-      } else {
+      const { validAngle, tooDeepAngle } = configRef.current.depth;
+      if (tracker.minAngle > validAngle) {
         setBadReps((n) => n + 1);
         playWarningTone();
-        showFeedback('Go Lower: Reach 90°');
+        showFeedback(`Go Lower: Reach ${validAngle}°`, 'warn');
+        return;
+      }
+      setValidReps((n) => n + 1);
+      if (tooDeepAngle !== undefined && tracker.minAngle < tooDeepAngle) {
+        playWarningTone();
+        showFeedback('Too Deep — Protect Your Knee', 'warn');
+      } else {
+        playGoodRepTone();
       }
     };
 
@@ -192,23 +232,21 @@ export default function SquatTracker({ targetReps = 10, onFinish }: SquatTracker
         case 'STANDING':
           if (angle < DESCENT_ANGLE) {
             tracker.minAngle = angle;
-            tracker.depthValid = false;
+            tracker.descentStartedAt = performance.now();
             enterPhase('DESCENDING');
           }
           break;
         case 'DESCENDING':
           tracker.minAngle = Math.min(tracker.minAngle, angle);
           if (angle >= tracker.minAngle + INFLECTION_DELTA) {
-            tracker.depthValid = tracker.minAngle <= DEPTH_ANGLE;
-            enterPhase('BOTTOM');
+            // Too fast to be a controlled squat: a stumble or a quick bend.
+            const tooFast = performance.now() - tracker.descentStartedAt < MIN_DESCENT_MS;
+            enterPhase(tooFast ? 'STANDING' : 'BOTTOM');
           }
           break;
         case 'BOTTOM':
           // The user may sink a little deeper after the first inflection.
-          if (angle < tracker.minAngle) {
-            tracker.minAngle = angle;
-            tracker.depthValid = tracker.minAngle <= DEPTH_ANGLE;
-          }
+          tracker.minAngle = Math.min(tracker.minAngle, angle);
           if (angle > STANDING_ANGLE) {
             finishRep();
             enterPhase('STANDING');
@@ -249,37 +287,57 @@ export default function SquatTracker({ targetReps = 10, onFinish }: SquatTracker
 
       const landmarks = result.landmarks[0];
       if (!landmarks) {
-        setInFrame(false);
+        setFrameIssue('LOW_VISIBILITY');
         resetTracking();
         return;
       }
 
-      const side = pickVisibleSide(landmarks);
+      // The leg is locked for the whole rep so a visibility flicker can't swap legs mid-squat.
+      const side = tracker.lockedSide ?? pickVisibleSide(landmarks);
       drawSkeleton(ctx, landmarks, connections, side, width, height);
 
-      const frameCheck = isUserInFrame(landmarks);
-      setInFrame(frameCheck.inFrame);
-      if (!frameCheck.inFrame) {
+      const frameCheck = isUserInFrame(landmarks, side);
+      setFrameIssue(frameCheck.code ?? null);
+      if (!frameCheck.inFrame || pausedRef.current) {
         resetTracking();
         return;
       }
 
       const leg = LEGS[side];
+      const hip = toPixels(landmarks[leg.hip], width, height);
       const knee = toPixels(landmarks[leg.knee], width, height);
-      const rawAngle = calculateAngle(
-        toPixels(landmarks[leg.hip], width, height),
-        knee,
-        toPixels(landmarks[leg.ankle], width, height),
-      );
+      const ankle = toPixels(landmarks[leg.ankle], width, height);
+
+      if (tracker.phase === 'STANDING') {
+        const thigh = distance(hip, knee);
+        const previous = tracker.thighLength[side];
+        tracker.thighLength[side] = previous === 0 ? thigh : previous + THIGH_LENGTH_SMOOTHING * (thigh - previous);
+      }
+      const thighLength = tracker.thighLength[side];
+
+      // Side-on, the 2D knee angle is accurate; facing the camera it barely changes, so estimate from hip drop.
+      const otherLeg = LEGS[side === 'left' ? 'right' : 'left'];
+      const hipSpread = Math.abs(landmarks[leg.hip].x - landmarks[otherLeg.hip].x) * width;
+      const mode: ViewMode = hipSpread < SIDE_VIEW_HIP_SPREAD * thighLength ? 'SIDE' : 'FRONT';
+      setViewMode(mode);
+
+      const rawAngle = mode === 'SIDE' ? calculateAngle(hip, knee, ankle) : estimateKneeFlexion(hip, knee, thighLength);
       const angle =
         tracker.smoothedAngle === null
           ? rawAngle
           : tracker.smoothedAngle + ANGLE_SMOOTHING * (rawAngle - tracker.smoothedAngle);
       tracker.smoothedAngle = angle;
 
+      const wasStanding = tracker.phase === 'STANDING';
       updateStateMachine(angle);
+      if (wasStanding && tracker.phase === 'DESCENDING') tracker.lockedSide = side;
+
       setCurrentAngle(Math.round(angle));
-      drawAngleReadout(ctx, knee, angle, angle <= DEPTH_ANGLE);
+
+      const { validAngle, tooDeepAngle } = configRef.current.depth;
+      const kneeSafe = tooDeepAngle !== undefined;
+      const readoutColor = kneeSafe && angle < DEPTH_ANGLE ? AMBER : angle <= validAngle ? EMERALD : CYAN;
+      drawAngleReadout(ctx, knee, angle, readoutColor);
     };
 
     const createLandmarker = async () => {
@@ -293,108 +351,224 @@ export default function SquatTracker({ targetReps = 10, onFinish }: SquatTracker
           numPoses: 1,
         });
       try {
-        return await create('GPU');
+        landmarker = await create('GPU');
       } catch {
         // Some devices (no WebGL2, blocked GPU) can't run the GPU delegate.
-        return await create('CPU');
+        landmarker = await create('CPU');
       }
     };
 
     const startCamera = async () => {
-      const media = await navigator.mediaDevices.getUserMedia({
+      // Stored immediately so release() can stop it even if play() fails or we unmount mid-start.
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: VIDEO_WIDTH }, height: { ideal: VIDEO_HEIGHT }, facingMode: 'user' },
         audio: false,
       });
       const video = videoRef.current;
-      if (!video) return media;
-      video.srcObject = media;
+      if (!video || cancelled) return;
+      video.srcObject = stream;
       await video.play();
       if (canvasRef.current) {
         canvasRef.current.width = video.videoWidth || VIDEO_WIDTH;
         canvasRef.current.height = video.videoHeight || VIDEO_HEIGHT;
       }
-      return media;
     };
 
     (async () => {
-      try {
-        const [createdLandmarker, media] = await Promise.all([createLandmarker(), startCamera()]);
-        landmarker = createdLandmarker;
-        stream = media;
-        if (cancelled) {
-          landmarker.close();
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        setStatus('ready');
-        rafId = requestAnimationFrame(renderFrame);
-      } catch (err) {
-        if (cancelled) return;
-        const denied = err instanceof DOMException && err.name === 'NotAllowedError';
+      // Load the model while the camera permission prompt is open; settle both before deciding.
+      const [modelResult, cameraResult] = await Promise.allSettled([createLandmarker(), startCamera()]);
+      if (cancelled) {
+        release();
+        return;
+      }
+      if (cameraResult.status === 'rejected' || modelResult.status === 'rejected') {
+        release();
         setErrorMessage(
-          denied
-            ? 'Camera access was denied. Allow camera permissions and reload.'
-            : 'Could not start the tracker. Check your camera and connection.',
+          cameraResult.status === 'rejected'
+            ? describeStartupError(cameraResult.reason, 'camera')
+            : describeStartupError(null, 'model'),
         );
         setStatus('error');
+        return;
       }
+      setStatus('ready');
+      rafId = requestAnimationFrame(renderFrame);
     })();
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-      stream?.getTracks().forEach((t) => t.stop());
-      landmarker?.close();
+      release();
     };
   }, []);
 
-  const totalReps = validReps + badReps;
-  const formAccuracy = totalReps > 0 ? Math.round((validReps / totalReps) * 100) : 0;
-  const pointsEarned = validReps * POINTS_PER_VALID_REP;
+  // Rest countdown between sets.
+  useEffect(() => {
+    if (restRemaining === null) return;
+    if (restRemaining <= 0) {
+      setRestRemaining(null);
+      return;
+    }
+    const timeout = setTimeout(() => setRestRemaining((s) => (s === null ? null : s - 1)), 1000);
+    return () => clearTimeout(timeout);
+  }, [restRemaining]);
 
-  const handleFinish = () => {
-    onFinish?.({ validReps, badReps, totalReps, targetReps, formAccuracy, pointsEarned });
+  const finishWorkout = useCallback(
+    (sets: SquatSetResult[]) => {
+      onFinish({
+        source: config.source,
+        exerciseName: config.exerciseName,
+        setsPlanned: config.sets,
+        targetReps: config.targetReps,
+        sets,
+        ...summarizeSets(sets),
+      });
+    },
+    [config, onFinish],
+  );
+
+  const currentSet: SquatSetResult = { validReps, badReps };
+  const setNumber = Math.min(completedSets.length + 1, config.sets);
+  const isLastSet = completedSets.length + 1 >= config.sets;
+  const isMultiSet = config.sets > 1;
+
+  const handleFinishSet = () => {
+    const sets = [...completedSets, currentSet];
+    if (isLastSet) {
+      finishWorkout(sets);
+      return;
+    }
+    setCompletedSets(sets);
+    setValidReps(0);
+    setBadReps(0);
+    if (config.restSeconds > 0) setRestRemaining(config.restSeconds);
   };
 
+  const handleEndWorkout = () => {
+    const hasCurrentReps = validReps + badReps > 0;
+    finishWorkout(hasCurrentReps ? [...completedSets, currentSet] : completedSets);
+  };
+
+  const allSets = [...completedSets, currentSet];
+  const { validReps: totalValid, badReps: totalBad, formAccuracy } = summarizeSets(allSets);
+  const totalReps = totalValid + totalBad;
+  const potentialPoints = totalValid * POINTS_PER_VALID_REP;
+  const kneeSafe = config.depth.tooDeepAngle !== undefined;
+
   return (
-    <div style={styles.root}>
-      <div style={styles.stage}>
-        <video ref={videoRef} style={styles.hiddenVideo} playsInline muted />
-        <canvas ref={canvasRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} style={styles.canvas} />
+    <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 text-zinc-100">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="text-base font-semibold text-zinc-100">{config.exerciseName}</h2>
+        <p className="font-mono text-xs uppercase tracking-widest text-zinc-400">
+          {isMultiSet ? `Set ${setNumber} / ${config.sets} · ` : ''}Target {config.targetReps} reps
+          {kneeSafe ? ' · Knee-safe' : ''}
+        </p>
+      </div>
 
-        {status === 'loading' && <div style={styles.overlayMessage}>Loading pose model…</div>}
-        {status === 'error' && <div style={{ ...styles.overlayMessage, color: RED }}>{errorMessage}</div>}
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-cyber-cyan/30 bg-[#050C14] shadow-glow-cyan">
+        <video ref={videoRef} className="hidden" playsInline muted />
+        <canvas
+          ref={canvasRef}
+          width={VIDEO_WIDTH}
+          height={VIDEO_HEIGHT}
+          className="block h-full w-full -scale-x-100"
+        />
 
-        {status === 'ready' && !inFrame && (
-          <div role="alert" style={styles.stepBackPill}>
+        {status === 'loading' && (
+          <div className="absolute inset-0 grid place-items-center p-4 text-center font-mono text-sm text-cyber-cyan">
+            Starting camera &amp; pose model… allow camera access if your browser asks.
+          </div>
+        )}
+        {status === 'error' && (
+          <div role="alert" className="absolute inset-0 grid place-items-center p-6 text-center text-sm font-medium text-rose-400">
+            {errorMessage}
+          </div>
+        )}
+
+        {status === 'ready' && frameIssue === 'OUT_OF_BOUNDS' && !resting && (
+          <div
+            role="alert"
+            className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full bg-cyber-gold px-4 py-2 text-center text-sm font-extrabold tracking-wide text-amber-950 shadow-glow-gold"
+          >
             ⚠️ STEP BACK: Make sure your full body is visible
           </div>
         )}
-
-        {feedback && (
-          <div role="status" style={styles.feedbackToast}>
-            {feedback}
+        {status === 'ready' && frameIssue === 'LOW_VISIBILITY' && !resting && (
+          <div
+            role="alert"
+            className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full border border-cyber-gold bg-zinc-950/85 px-4 py-2 text-center text-sm font-bold text-cyber-gold"
+          >
+            Tracking lost — improve lighting or face the camera
           </div>
         )}
 
-        {status === 'ready' && <div style={styles.phaseTag}>{phase}</div>}
+        {feedback && !resting && (
+          <div
+            role="status"
+            className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-xl px-5 py-3 text-lg font-extrabold text-white sm:text-xl ${
+              feedback.tone === 'warn' ? 'bg-rose-500/90 shadow-glow-red' : 'bg-cyber-cyan/90 text-zinc-950'
+            }`}
+          >
+            {feedback.message}
+          </div>
+        )}
+
+        {resting && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-950/80 p-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-400">
+              Rest · Next: Set {completedSets.length + 1} / {config.sets}
+            </p>
+            <p className="font-mono text-6xl font-bold tabular-nums text-cyber-cyan [text-shadow:0_0_18px_rgba(0,229,255,0.6)]">
+              {restRemaining}s
+            </p>
+            <button
+              type="button"
+              onClick={() => setRestRemaining(null)}
+              className="rounded-lg border border-cyber-cyan/60 px-4 py-2 text-sm font-semibold text-cyber-cyan hover:bg-cyber-cyan/10"
+            >
+              Skip Rest
+            </button>
+          </div>
+        )}
+
+        {status === 'ready' && (
+          <div className="absolute bottom-3 left-3 rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-cyber-cyan">
+            {resting ? 'RESTING' : `${phase} · ${viewMode} VIEW`}
+          </div>
+        )}
       </div>
 
-      <div style={styles.card}>
-        <div style={styles.stats}>
-          <Stat label="Reps" value={`${pad2(validReps)} / ${pad2(targetReps)}`} />
+      <div className="flex flex-col gap-4 rounded-2xl border border-cyber-cyan/25 bg-gradient-to-br from-[#0A1824] to-[#050C14] p-4">
+        <div className="flex flex-wrap justify-between gap-3">
+          <Stat label={isMultiSet ? `Reps · Set ${setNumber}` : 'Reps'} value={`${pad2(validReps)} / ${pad2(config.targetReps)}`} />
           <Stat label="Form Accuracy" value={totalReps > 0 ? `${formAccuracy}%` : '--%'} />
-          <Stat label="Knee Angle" value={currentAngle !== null ? `${currentAngle}°` : '--°'} />
+          <Stat label={viewMode === 'FRONT' ? 'Knee Angle (est.)' : 'Knee Angle'} value={currentAngle !== null ? `${currentAngle}°` : '--°'} />
         </div>
-        <div style={styles.cardFooter}>
-          <div style={styles.pointsBadge}>
-            <span style={styles.pointsSponsor}>Arab Bank</span>
-            <span style={styles.pointsValue}>+{pointsEarned} Pts</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-2 rounded-full border border-cyber-cyan/40 bg-cyber-cyan/5 px-3.5 py-2">
+            <span className="text-xs font-semibold text-zinc-400">Arab Bank</span>
+            <span className="font-mono font-bold tabular-nums text-cyber-emerald">Potential +{potentialPoints} Pts</span>
           </div>
-          <button type="button" onClick={handleFinish} style={styles.finishButton}>
-            Finish Set
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {isMultiSet && (
+              <button
+                type="button"
+                onClick={handleEndWorkout}
+                className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+              >
+                End Workout
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleFinishSet}
+              disabled={resting}
+              className="rounded-xl bg-cyber-cyan px-5 py-3 text-sm font-extrabold text-zinc-950 shadow-glow-cyan transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isMultiSet && isLastSet ? 'Finish Workout' : 'Finish Set'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -403,138 +577,11 @@ export default function SquatTracker({ targetReps = 10, onFinish }: SquatTracker
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div style={styles.stat}>
-      <span style={styles.statLabel}>{label}</span>
-      <span style={styles.statValue}>{value}</span>
+    <div className="flex min-w-0 flex-[1_1_120px] flex-col gap-1">
+      <span className="text-[11px] uppercase tracking-[0.15em] text-zinc-400">{label}</span>
+      <span className="font-mono text-3xl font-bold tabular-nums text-cyber-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
+        {value}
+      </span>
     </div>
   );
 }
-
-const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
-
-const styles: Record<string, CSSProperties> = {
-  root: {
-    width: '100%',
-    maxWidth: VIDEO_WIDTH,
-    margin: '0 auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    color: '#E6F7FF',
-    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  },
-  stage: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: `${VIDEO_WIDTH} / ${VIDEO_HEIGHT}`,
-    background: '#050C14',
-    borderRadius: 16,
-    overflow: 'hidden',
-    border: `1px solid ${CYAN}55`,
-    boxShadow: `0 0 24px ${CYAN}33`,
-  },
-  hiddenVideo: { display: 'none' },
-  canvas: { width: '100%', height: '100%', display: 'block', transform: 'scaleX(-1)' },
-  overlayMessage: {
-    position: 'absolute',
-    inset: 0,
-    display: 'grid',
-    placeItems: 'center',
-    padding: 16,
-    textAlign: 'center',
-    fontFamily: MONO,
-    color: CYAN,
-  },
-  stepBackPill: {
-    position: 'absolute',
-    top: 16,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    maxWidth: 'calc(100% - 32px)',
-    padding: '10px 18px',
-    borderRadius: 999,
-    background: AMBER,
-    color: '#1A1200',
-    fontWeight: 800,
-    fontSize: 14,
-    textAlign: 'center',
-    letterSpacing: 0.3,
-    boxShadow: `0 0 20px ${AMBER}AA`,
-  },
-  feedbackToast: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    padding: '12px 22px',
-    borderRadius: 12,
-    background: 'rgba(255, 61, 87, 0.92)',
-    color: '#FFFFFF',
-    fontWeight: 800,
-    fontSize: 20,
-    whiteSpace: 'nowrap',
-    boxShadow: `0 0 24px ${RED}AA`,
-  },
-  phaseTag: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    padding: '4px 10px',
-    borderRadius: 6,
-    background: 'rgba(5, 12, 20, 0.7)',
-    border: `1px solid ${CYAN}66`,
-    color: CYAN,
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 1.5,
-  },
-  card: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 14,
-    padding: 16,
-    borderRadius: 16,
-    background: 'linear-gradient(160deg, #0A1824 0%, #050C14 100%)',
-    border: `1px solid ${CYAN}44`,
-  },
-  stats: { display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
-  stat: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: '1 1 120px' },
-  statLabel: { fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: '#7FA8BC' },
-  statValue: {
-    fontFamily: MONO,
-    fontVariantNumeric: 'tabular-nums',
-    fontSize: 32,
-    fontWeight: 700,
-    color: CYAN,
-    textShadow: `0 0 12px ${CYAN}88`,
-  },
-  cardFooter: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 12,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pointsBadge: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: 8,
-    padding: '8px 14px',
-    borderRadius: 999,
-    background: 'rgba(0, 229, 255, 0.08)',
-    border: `1px solid ${CYAN}66`,
-  },
-  pointsSponsor: { fontSize: 12, color: '#7FA8BC', fontWeight: 600 },
-  pointsValue: { fontFamily: MONO, fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: '#00FF9C' },
-  finishButton: {
-    padding: '12px 22px',
-    borderRadius: 12,
-    border: 'none',
-    background: CYAN,
-    color: '#03141C',
-    fontWeight: 800,
-    fontSize: 15,
-    cursor: 'pointer',
-    boxShadow: `0 0 18px ${CYAN}88`,
-  },
-};

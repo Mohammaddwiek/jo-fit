@@ -54,6 +54,14 @@ function playTone(frequency: number, durationMs: number, type: OscillatorType, p
   };
 }
 
+/**
+ * Creates/resumes the shared AudioContext. Call from a click handler so later tones,
+ * which fire from the animation loop, are allowed to play.
+ */
+export function unlockAudio(): void {
+  getAudioContext();
+}
+
 /** Bright confirmation chime for a clean rep: 880 Hz sine, 120 ms. */
 export function playGoodRepTone(): void {
   playTone(880, 120, 'sine', 0.3);

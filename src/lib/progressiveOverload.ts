@@ -33,17 +33,20 @@ const roundTo = (value: number, decimals: number): number => {
  * Decides the next session's load from this session's performance.
  *
  * @param formScore Form accuracy as a percentage (0–100).
+ * @param pointsReps Valid reps to award points for. Defaults to `completedReps`; a
+ *   multi-set workout passes its total valid reps while `completedReps` is its weakest set.
  */
 export function calculateNextSession(
   currentProfile: UserProfile,
   completedReps: number,
   formScore: number,
+  pointsReps: number = completedReps,
 ): SessionResult {
   const isBodyweight = currentProfile.currentWeight <= 0;
   const hitTarget = completedReps >= currentProfile.targetReps;
 
   if (hitTarget && formScore >= FORM_SCORE_THRESHOLD) {
-    const pointsEarned = completedReps * POINTS_PER_VALID_REP;
+    const pointsEarned = pointsReps * POINTS_PER_VALID_REP;
     return {
       status: 'Overload Achieved',
       pointsEarned,

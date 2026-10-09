@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  @apply bg-zinc-950 text-zinc-100 antialiased;
+}
+
+::selection {
+  background: rgba(0, 229, 255, 0.3);
+  color: #ffffff;
+}
+
+:focus-visible {
+  outline: 2px solid #00e5ff;
+  outline-offset: 2px;
+}
+
+/* Hide the number spinners in the survey inputs. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
