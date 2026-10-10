@@ -12,20 +12,25 @@ import {
   type Point,
 } from './angleMath';
 
-/** Full extension at the bottom of the curl. */
-export const EXTENDED_ANGLE = 150;
-/** Dropping below this from extension starts a rep. */
-export const START_ANGLE = 135;
-/** Full contraction at the top of the curl. */
-export const CONTRACTED_ANGLE = 50;
+/** Full extension at the bottom of the curl (forgiving: anything past 135° counts). */
+export const EXTENDED_ANGLE = 135;
+/** Dropping below this from extension starts a rep (must stay below EXTENDED_ANGLE). */
+export const START_ANGLE = 120;
+/** Full contraction at the top of the curl (forgiving: closing to 70° counts). */
+export const CONTRACTED_ANGLE = 70;
 /** A curl that never gets below this wasn't a real attempt (a twitch), so it isn't logged. */
-export const MIN_ATTEMPT_ANGLE = 120;
+export const MIN_ATTEMPT_ANGLE = 105;
 /** How far the angle must reverse before a turnaround (top or bottom) is recognised. */
 export const REVERSAL_DELTA = 10;
-/** Elbows wider than this multiple of shoulder width count as flaring. */
-export const FLARE_RATIO = 1.3;
-/** Consecutive flaring frames required, so tracking jitter doesn't trigger a fault. */
-export const FLARE_FRAMES = 3;
+/** Elbows wider than this multiple of shoulder width count as flaring (heavy curls drift out naturally). */
+export const FLARE_RATIO = 1.6;
+/**
+ * Every error must persist this many consecutive frames (~130 ms at 30 fps) before it counts,
+ * so a split-second skeleton jitter can't invalidate a good rep.
+ */
+export const ERROR_DEBOUNCE_FRAMES = 4;
+/** Frames the arm must stay extended before a rep is completed. */
+const EXTEND_CONFIRM_FRAMES = 2;
 /** Reps faster than this are treated as noise, not curls. */
 export const MIN_REP_MS = 400;
 
@@ -169,6 +174,16 @@ export function createCurlSession() {
   let errors = new Set<CurlError>();
   let flareChecked = false;
   let flareStreak = 0;
+  // Consecutive-frame counters so turnarounds and completion aren't triggered by one-frame jitter.
+  let topStreak = 0;
+  let recurlStreak = 0;
+  let extendStreak = 0;
+
+  const resetStreaks = () => {
+    topStreak = 0;
+    recurlStreak = 0;
+    extendStreak = 0;
+  };
 
   const startRep = (angle: number, now: number) => {
     phase = 'CURLING';
@@ -177,6 +192,7 @@ export function createCurlSession() {
     maxSinceTop = 0;
     errors = new Set();
     flareChecked = false;
+    resetStreaks();
   };
 
   const finishRep = (now: number): CurlRep | undefined => {
@@ -191,6 +207,7 @@ export function createCurlSession() {
     smoothed = null;
     lockedArm = null;
     flareStreak = 0;
+    resetStreaks();
   };
 
   function step({ landmarks, width, height, now }: CurlFrameInput): CurlFrameOutput {
@@ -224,7 +241,7 @@ export function createCurlSession() {
     // Elbow flare (front view only).
     const spread = viewMode === 'FRONT' ? measureElbowSpread(landmarks) : null;
     flareStreak = spread && isElbowFlaring(spread) ? flareStreak + 1 : 0;
-    const flaring = flareStreak >= FLARE_FRAMES;
+    const flaring = flareStreak >= ERROR_DEBOUNCE_FRAMES;
 
     let completedRep: CurlRep | undefined;
     let cue: string | undefined;
@@ -241,7 +258,9 @@ export function createCurlSession() {
         break;
       case 'CURLING':
         minAngle = Math.min(minAngle, angle);
-        if (angle >= minAngle + REVERSAL_DELTA) {
+        // The top only counts once the arm has clearly been lowering for several frames.
+        topStreak = angle >= minAngle + REVERSAL_DELTA ? topStreak + 1 : 0;
+        if (topStreak >= ERROR_DEBOUNCE_FRAMES) {
           if (minAngle > MIN_ATTEMPT_ANGLE) {
             // Barely moved: not a rep attempt.
             phase = 'EXTENDED';
@@ -251,15 +270,19 @@ export function createCurlSession() {
             phase = 'LOWERING';
             maxSinceTop = angle;
           }
+          resetStreaks();
         }
         break;
       case 'LOWERING':
         maxSinceTop = Math.max(maxSinceTop, angle);
-        if (angle >= EXTENDED_ANGLE) {
+        extendStreak = angle >= EXTENDED_ANGLE ? extendStreak + 1 : 0;
+        recurlStreak = angle <= maxSinceTop - REVERSAL_DELTA ? recurlStreak + 1 : 0;
+        if (extendStreak >= EXTEND_CONFIRM_FRAMES) {
           completedRep = finishRep(now);
           phase = 'EXTENDED';
           lockedArm = null;
-        } else if (angle <= maxSinceTop - REVERSAL_DELTA) {
+          resetStreaks();
+        } else if (recurlStreak >= ERROR_DEBOUNCE_FRAMES) {
           // Curling again before full extension: this rep never straightened out.
           errors.add('partial_rep_bottom');
           completedRep = finishRep(now);
