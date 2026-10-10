@@ -3,14 +3,16 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Dumbbell, Gem, Home, Trophy, type LucideIcon } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/cn';
+import type { TranslationKey } from '../locales/en';
 
 export const TABS = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'plan', label: 'Plan & AI Studio', icon: Dumbbell },
-  { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-  { id: 'wallet', label: 'Rewards', icon: Gem },
-] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon }>;
+  { id: 'home', labelKey: 'nav.home', icon: Home },
+  { id: 'plan', labelKey: 'nav.plan', icon: Dumbbell },
+  { id: 'leaderboard', labelKey: 'nav.leaderboard', icon: Trophy },
+  { id: 'wallet', labelKey: 'nav.rewards', icon: Gem },
+] as const satisfies ReadonlyArray<{ id: string; labelKey: TranslationKey; icon: LucideIcon }>;
 
 export type TabId = (typeof TABS)[number]['id'];
 
@@ -21,12 +23,16 @@ interface BottomNavProps {
 
 export default function BottomNav({ active, onSelect }: BottomNavProps) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const { t, dir } = useLanguage();
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const last = TABS.length - 1;
+    // In right-to-left layouts the visual order is reversed, so the arrow keys swap too.
+    const nextKey = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+    const prevKey = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
     const target =
-      event.key === 'ArrowRight' ? (index === last ? 0 : index + 1)
-      : event.key === 'ArrowLeft' ? (index === 0 ? last : index - 1)
+      event.key === nextKey ? (index === last ? 0 : index + 1)
+      : event.key === prevKey ? (index === 0 ? last : index - 1)
       : event.key === 'Home' ? 0
       : event.key === 'End' ? last
       : null;
@@ -37,8 +43,8 @@ export default function BottomNav({ active, onSelect }: BottomNavProps) {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface-2/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div role="tablist" aria-label="Jo-Fit sections" className="mx-auto grid max-w-3xl grid-cols-4">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-[#262630] dark:bg-[#111116]/95">
+      <div role="tablist" aria-label={t('nav.sections')} className="mx-auto grid max-w-3xl grid-cols-4">
         {TABS.map((tab, index) => {
           const selected = tab.id === active;
           const Icon = tab.icon;
@@ -57,7 +63,7 @@ export default function BottomNav({ active, onSelect }: BottomNavProps) {
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cn(
                 'relative flex flex-col items-center gap-1 px-1 pb-2.5 pt-3 text-[11px] font-semibold transition',
-                selected ? 'text-cyber-emerald' : 'text-zinc-500 hover:text-zinc-300',
+                selected ? 'text-accent-emerald' : 'text-muted hover:text-soft',
               )}
             >
               {selected && (
@@ -68,7 +74,7 @@ export default function BottomNav({ active, onSelect }: BottomNavProps) {
                 />
               )}
               <Icon className={cn('h-5 w-5', selected && 'drop-shadow-[0_0_8px_rgba(0,230,118,0.7)]')} aria-hidden />
-              <span className="truncate">{tab.label}</span>
+              <span className="max-w-full truncate">{t(tab.labelKey)}</span>
             </button>
           );
         })}

@@ -10,13 +10,13 @@ import { sumFaults } from '../lib/workoutConfig';
 /** One analysis row: check for ok, warning for not ok, neutral info for null. */
 function AnalysisLine({ ok, children }: { ok: boolean | null; children: React.ReactNode }) {
   return (
-    <p className="mt-2 flex items-start gap-2 text-sm text-zinc-300">
+    <p className="mt-2 flex items-start gap-2 text-sm text-soft">
       {ok === null ? (
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden />
       ) : ok ? (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyber-emerald" aria-hidden />
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent-emerald" aria-hidden />
       ) : (
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cyber-gold" aria-hidden />
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent-gold" aria-hidden />
       )}
       <span>{children}</span>
     </p>
@@ -30,10 +30,10 @@ interface PostWorkoutModalProps {
 }
 
 const STATUS_STYLES: Record<SessionSummary['status'], { badge: string; icon: typeof TrendingUp; headline: string }> = {
-  'Overload Achieved': { badge: 'border-cyber-emerald/50 bg-cyber-emerald/10 text-cyber-emerald', icon: TrendingUp, headline: 'Hero Session Completed!' },
-  'Form Gate Active': { badge: 'border-cyber-gold/50 bg-cyber-gold/10 text-cyber-gold', icon: ShieldCheck, headline: 'Session Completed!' },
+  'Overload Achieved': { badge: 'border-cyber-emerald/50 bg-cyber-emerald/10 text-accent-emerald', icon: TrendingUp, headline: 'Hero Session Completed!' },
+  'Form Gate Active': { badge: 'border-cyber-gold/50 bg-cyber-gold/10 text-accent-gold', icon: ShieldCheck, headline: 'Session Completed!' },
   'Deload Triggered': { badge: 'border-rose-500/50 bg-rose-500/10 text-rose-400', icon: TrendingDown, headline: 'Session Completed' },
-  'Set Discarded': { badge: 'border-zinc-600 bg-zinc-800 text-zinc-300', icon: Ban, headline: 'Set Not Counted' },
+  'Set Discarded': { badge: 'border-line bg-surface-2 text-soft', icon: Ban, headline: 'Set Not Counted' },
 };
 
 const fmt = (n: number) => n.toLocaleString('en-US');
@@ -70,7 +70,7 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
     <Modal open onClose={onClose} title={headline} size="max-w-md">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-zinc-400">{summary.exerciseName}</p>
+          <p className="text-sm font-medium text-muted">{summary.exerciseName}</p>
           <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold', badge)}>
             <StatusIcon className="h-3.5 w-3.5" aria-hidden />
             {summary.status}
@@ -79,19 +79,19 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
 
         <div className="grid grid-cols-2 divide-x divide-line rounded-2xl border border-line bg-surface-2 py-4 text-center">
           <div>
-            <p className="font-mono text-4xl font-black tabular-nums text-cyber-gold">+{fmt(summary.pointsEarned)}</p>
-            <p className="text-xs font-medium text-zinc-400">Arab Bank Pts</p>
+            <p className="font-mono text-4xl font-black tabular-nums text-accent-gold">+{fmt(summary.pointsEarned)}</p>
+            <p className="text-xs font-medium text-muted">Arab Bank Pts</p>
           </div>
           <div>
-            <p className="font-mono text-4xl font-black tabular-nums text-cyber-emerald">{summary.formAccuracy}%</p>
-            <p className="text-xs font-medium text-zinc-400">Avg Form Score</p>
+            <p className="font-mono text-4xl font-black tabular-nums text-accent-emerald">{summary.formAccuracy}%</p>
+            <p className="text-xs font-medium text-muted">Avg Form Score</p>
           </div>
         </div>
 
         <section className="rounded-2xl border border-line bg-surface-2 p-4">
-          <h3 className="text-sm font-bold text-zinc-100">AI Form Analysis</h3>
+          <h3 className="text-sm font-bold text-ink">AI Form Analysis</h3>
           <AnalysisLine ok={depthGood}>
-            Knee depth: <span className="font-semibold text-zinc-100">{deepReps} of {totalReps}</span> reps reached target
+            Knee depth: <span className="font-semibold text-ink">{deepReps} of {totalReps}</span> reps reached target
             depth
           </AnalysisLine>
           {hasFaultData && totalReps > 0 && faults.checkedReps === 0 ? (
@@ -103,9 +103,9 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
                 <AnalysisLine ok={faults.wideStance === 0}>
                   Stance width:{' '}
                   {faults.wideStance === 0 ? (
-                    <span className="font-semibold text-cyber-emerald">OK</span>
+                    <span className="font-semibold text-accent-emerald">OK</span>
                   ) : (
-                    <span className="font-semibold text-zinc-100">
+                    <span className="font-semibold text-ink">
                       {faults.wideStance} rep{faults.wideStance === 1 ? '' : 's'} started too wide
                     </span>
                   )}
@@ -113,9 +113,9 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
                 <AnalysisLine ok={faults.valgus === 0}>
                   Knee tracking:{' '}
                   {faults.valgus === 0 ? (
-                    <span className="font-semibold text-cyber-emerald">Stable</span>
+                    <span className="font-semibold text-accent-emerald">Stable</span>
                   ) : (
-                    <span className="font-semibold text-zinc-100">
+                    <span className="font-semibold text-ink">
                       {faults.valgus} rep{faults.valgus === 1 ? '' : 's'} caved in
                     </span>
                   )}
@@ -124,25 +124,25 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
             )
           )}
           {summary.sets.length > 1 && (
-            <p className="mt-2 font-mono text-xs tabular-nums text-zinc-400">
+            <p className="mt-2 font-mono text-xs tabular-nums text-muted">
               {summary.sets
                 .map((set, i) => `Set ${i + 1}: ${set.validReps}${set.validReps >= summary.targetReps ? ' ✓' : ''}`)
                 .join(' · ')}
               {summary.sets.length < summary.setsPlanned && ` · ${summary.setsPlanned - summary.sets.length} skipped`}
             </p>
           )}
-          <p className="mt-2 text-[11px] text-zinc-500">
+          <p className="mt-2 text-[11px] text-muted">
             Target: {summary.targetReps} reps per set. Form score = share of reps passing depth, stance and knee checks.
           </p>
         </section>
 
         <section className="rounded-2xl border border-line bg-surface-2 p-4">
-          <h3 className="text-sm font-bold text-zinc-100">AI Next-Session Recommendation</h3>
-          <p className="mt-1.5 text-sm text-zinc-300">{recommendation(summary)}</p>
+          <h3 className="text-sm font-bold text-ink">AI Next-Session Recommendation</h3>
+          <p className="mt-1.5 text-sm text-soft">{recommendation(summary)}</p>
         </section>
 
         {summary.rankAfter < summary.rankBefore && (
-          <p className="flex items-center gap-2 text-sm font-semibold text-cyber-gold">
+          <p className="flex items-center gap-2 text-sm font-semibold text-accent-gold">
             <Trophy className="h-4 w-4" aria-hidden />
             You moved up to #{summary.rankAfter} on the Heroes Gym leaderboard!
           </p>
@@ -152,7 +152,7 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-line py-3 text-sm font-semibold text-zinc-200 hover:border-zinc-500"
+            className="flex-1 rounded-xl border border-line py-3 text-sm font-semibold text-soft hover:border-muted"
           >
             Done
           </button>

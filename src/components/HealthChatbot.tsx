@@ -30,14 +30,14 @@ function renderRich(text: string): ReactNode {
     line.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g).map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
         return (
-          <strong key={i} className="font-semibold text-white">
+          <strong key={i} className="font-semibold text-ink">
             {part.slice(2, -2)}
           </strong>
         );
       }
       if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
         return (
-          <em key={i} className="text-zinc-300">
+          <em key={i} className="text-soft">
             {part.slice(1, -1)}
           </em>
         );
@@ -50,7 +50,7 @@ function renderRich(text: string): ReactNode {
   const flush = () => {
     if (bullets.length === 0) return;
     blocks.push(
-      <ul key={`ul-${blocks.length}`} className="ml-4 list-disc space-y-0.5 marker:text-cyber-emerald">
+      <ul key={`ul-${blocks.length}`} className="ml-4 list-disc space-y-0.5 marker:text-accent-emerald">
         {bullets.map((b, i) => (
           <li key={i}>{inline(b)}</li>
         ))}
@@ -161,23 +161,23 @@ export default function HealthChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.18 }}
-            className="fixed bottom-44 right-4 z-50 flex h-[520px] max-h-[calc(100dvh-13rem)] w-96 max-w-[92vw] flex-col overflow-hidden rounded-3xl border border-[#262630] bg-[#111116] text-zinc-100 shadow-2xl sm:right-6"
+            className="fixed bottom-44 end-4 z-50 flex h-[520px] max-h-[calc(100dvh-13rem)] w-96 max-w-[92vw] flex-col overflow-hidden rounded-3xl border border-line bg-surface-2 text-ink shadow-2xl sm:end-6"
           >
-            <header className="flex items-center justify-between gap-3 border-b border-[#262630] px-4 py-3">
+            <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
               <div className="min-w-0">
                 <h2 id={titleId} className="truncate text-sm font-bold">
                   Jo-Fit Health Coach
                 </h2>
-                <p className="text-[11px] font-medium text-zinc-400">Sponsored by Arab Bank</p>
+                <p className="text-[11px] font-medium text-muted">Sponsored by Arab Bank</p>
               </div>
               <div className="flex items-center gap-2">
                 {source === 'gemini' ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyber-emerald/50 bg-cyber-emerald/10 px-2.5 py-1 text-[11px] font-bold text-cyber-emerald">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyber-emerald/50 bg-cyber-emerald/10 px-2.5 py-1 text-[11px] font-bold text-accent-emerald">
                     <span className="h-1.5 w-1.5 rounded-full bg-cyber-emerald shadow-glow-emerald" aria-hidden />
                     AI Active
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyber-gold/50 bg-cyber-gold/10 px-2.5 py-1 text-[11px] font-bold text-cyber-gold">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyber-gold/50 bg-cyber-gold/10 px-2.5 py-1 text-[11px] font-bold text-accent-gold">
                     <span className="h-1.5 w-1.5 rounded-full bg-cyber-gold" aria-hidden />
                     Offline Coach
                   </span>
@@ -186,21 +186,21 @@ export default function HealthChatbot() {
                   type="button"
                   onClick={close}
                   aria-label="Minimize Health Coach"
-                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-[#16161C] hover:text-zinc-100"
+                  className="rounded-lg p-1.5 text-muted hover:bg-surface hover:text-ink"
                 >
                   <Minus className="h-4 w-4" aria-hidden />
                 </button>
               </div>
             </header>
 
-            <div className="flex gap-2 overflow-x-auto border-b border-[#262630] px-4 py-2.5 [scrollbar-width:none]">
+            <div className="flex gap-2 overflow-x-auto border-b border-line px-4 py-2.5 [scrollbar-width:none]">
               {QUICK_ACTIONS.map((label) => (
                 <button
                   key={label}
                   type="button"
                   onClick={() => void send(label)}
                   disabled={sending}
-                  className="shrink-0 whitespace-nowrap rounded-full border border-cyber-cyan/40 bg-cyber-cyan/5 px-3 py-1.5 text-xs font-semibold text-cyber-cyan transition hover:bg-cyber-cyan/15 disabled:opacity-40"
+                  className="shrink-0 whitespace-nowrap rounded-full border border-cyber-cyan/40 bg-cyber-cyan/5 px-3 py-1.5 text-xs font-semibold text-accent-cyan transition hover:bg-cyber-cyan/15 disabled:opacity-40"
                 >
                   {label}
                 </button>
@@ -213,8 +213,8 @@ export default function HealthChatbot() {
                   key={m.id}
                   className={
                     m.role === 'user'
-                      ? 'max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-md border border-cyber-cyan/30 bg-cyber-cyan/15 px-3.5 py-2.5 text-cyan-50'
-                      : 'max-w-[90%] self-start rounded-2xl rounded-bl-md border border-[#262630] bg-[#16161C] px-3.5 py-2.5 text-zinc-100'
+                      ? 'max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-md border border-cyber-cyan/30 bg-cyber-cyan/15 px-3.5 py-2.5 text-ink'
+                      : 'max-w-[90%] self-start rounded-2xl rounded-bl-md border border-line bg-surface px-3.5 py-2.5 text-ink'
                   }
                 >
                   {m.role === 'assistant' ? renderRich(m.content) : m.content}
@@ -222,7 +222,7 @@ export default function HealthChatbot() {
               ))}
               {sending && (
                 <div
-                  className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-md border border-[#262630] bg-[#16161C] px-4 py-3"
+                  className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-md border border-line bg-surface px-4 py-3"
                   aria-label="Coach is typing"
                 >
                   {[0, 1, 2].map((i) => (
@@ -237,7 +237,7 @@ export default function HealthChatbot() {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-[#262630] p-3">
+            <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-line p-3">
               <label htmlFor={`${titleId}-input`} className="sr-only">
                 Ask the Health Coach
               </label>
@@ -249,7 +249,7 @@ export default function HealthChatbot() {
                 maxLength={1000}
                 placeholder="Ask about form, overload, points…"
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-xl border border-[#262630] bg-[#16161C] px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyber-emerald focus:outline-none focus:ring-2 focus:ring-cyber-emerald/30"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted focus:border-cyber-emerald focus:outline-none focus:ring-2 focus:ring-cyber-emerald/30"
               />
               <button
                 type="submit"
@@ -271,11 +271,11 @@ export default function HealthChatbot() {
         aria-label={open ? 'Close Jo-Fit Health Coach' : 'Open Jo-Fit Health Coach'}
         aria-expanded={open}
         // Sits above the bottom navigation bar.
-        className="fixed bottom-24 right-4 z-50 grid h-14 w-14 sm:right-6 place-items-center rounded-full border border-cyber-emerald/60 bg-[#16161C] text-cyber-cyan shadow-[0_0_22px_rgba(0,229,255,0.35)] transition hover:border-cyber-cyan hover:shadow-[0_0_28px_rgba(0,230,118,0.5)]"
+        className="fixed bottom-24 end-4 z-50 grid h-14 w-14 sm:end-6 place-items-center rounded-full border border-cyber-emerald/60 bg-surface text-accent-cyan shadow-[0_0_22px_rgba(0,229,255,0.35)] transition hover:border-cyber-cyan hover:shadow-[0_0_28px_rgba(0,230,118,0.5)]"
       >
         <MessageCircle className="h-6 w-6" aria-hidden />
         <span
-          className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-[#16161C] bg-cyber-emerald shadow-glow-emerald"
+          className="absolute end-1 top-1 h-3 w-3 rounded-full border-2 border-surface bg-cyber-emerald shadow-glow-emerald"
           aria-hidden
         />
       </button>

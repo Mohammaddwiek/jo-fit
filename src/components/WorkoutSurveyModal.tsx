@@ -145,8 +145,8 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
         <ol className="flex gap-2" aria-label="Survey progress">
           {STEP_TITLES.map((title, index) => (
             <li key={title} className="flex-1" aria-current={index === step ? 'step' : undefined}>
-              <span className={`block h-1.5 rounded-full ${index <= step ? 'bg-cyber-emerald shadow-glow-emerald' : 'bg-zinc-800'}`} />
-              <span className={`mt-1.5 block text-[11px] ${index === step ? 'text-cyber-emerald' : 'text-zinc-500'}`}>
+              <span className={`block h-1.5 rounded-full ${index <= step ? 'bg-cyber-emerald shadow-glow-emerald' : 'bg-surface-2'}`} />
+              <span className={`mt-1.5 block text-[11px] ${index === step ? 'text-accent-emerald' : 'text-muted'}`}>
                 {index + 1}. {title}
               </span>
             </li>
@@ -158,7 +158,7 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
             {NUMBER_FIELDS.map((field) => {
               const errorId = `${baseId}-${field.key}-error`;
               return (
-                <label key={field.key} className="flex flex-col gap-1.5 text-sm text-zinc-300">
+                <label key={field.key} className="flex flex-col gap-1.5 text-sm text-soft">
                   {field.label} <span className="sr-only">in {field.unit}</span>
                   <div className="relative">
                     <input
@@ -170,11 +170,11 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
                       onChange={(e) => update(field.key, e.target.value)}
                       aria-invalid={errors[field.key] ? true : undefined}
                       aria-describedby={errors[field.key] ? errorId : undefined}
-                      className={`w-full rounded-lg border bg-surface-2 px-3 py-2.5 pr-14 font-mono text-zinc-100 ${focusRing} ${
+                      className={`w-full rounded-lg border bg-surface-2 px-3 py-2.5 pr-14 font-mono text-ink ${focusRing} ${
                         errors[field.key] ? 'border-rose-500' : 'border-line'
                       }`}
                     />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
                       {field.unit}
                     </span>
                   </div>
@@ -192,7 +192,7 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <fieldset>
-              <legend className="mb-2 text-sm text-zinc-300">Training experience</legend>
+              <legend className="mb-2 text-sm text-soft">Training experience</legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 {EXPERIENCE_OPTIONS.map((level) => (
                   <ChoiceCard
@@ -208,7 +208,7 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
               {errors.experience && <p className="mt-1.5 text-xs text-rose-400">{errors.experience}</p>}
             </fieldset>
             <fieldset>
-              <legend className="mb-2 text-sm text-zinc-300">Days available per week</legend>
+              <legend className="mb-2 text-sm text-soft">Days available per week</legend>
               <div className="grid grid-cols-4 gap-2">
                 {Array.from({ length: MAX_DAYS - MIN_DAYS + 1 }, (_, i) => MIN_DAYS + i).map((days) => (
                   <ChoiceCard
@@ -229,7 +229,7 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
         {step === 2 && (
           <div className="flex flex-col gap-5">
             <fieldset>
-              <legend className="mb-2 text-sm text-zinc-300">Any current injuries?</legend>
+              <legend className="mb-2 text-sm text-soft">Any current injuries?</legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {INJURY_OPTIONS.map((injury) => (
                   <ChoiceCard
@@ -246,7 +246,7 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
               {errors.injuries && <p className="mt-1.5 text-xs text-rose-400">{errors.injuries}</p>}
             </fieldset>
             <fieldset>
-              <legend className="mb-2 text-sm text-zinc-300">Primary goal</legend>
+              <legend className="mb-2 text-sm text-soft">Primary goal</legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 {GOAL_OPTIONS.map((goal) => (
                   <ChoiceCard key={goal} name="goal" checked={form.goal === goal} onChange={() => update('goal', goal)} title={goal} />
@@ -265,7 +265,7 @@ export default function WorkoutSurveyModal({ open, onClose, initial, onPlanGener
           <button
             type="button"
             onClick={() => (step === 0 ? onClose() : setStep(step - 1))}
-            className={`rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-zinc-500 ${focusRing}`}
+            className={`rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-soft hover:border-muted ${focusRing}`}
           >
             {step === 0 ? 'Cancel' : 'Back'}
           </button>
@@ -296,11 +296,11 @@ function ChoiceCard({ name, type = 'radio', checked, onChange, title, hint, cent
     <label
       className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border px-3 py-2.5 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-cyber-emerald ${
         centered ? 'items-center text-center' : ''
-      } ${checked ? 'border-cyber-emerald bg-cyber-emerald/10 text-cyber-emerald' : 'border-line bg-surface-2 text-zinc-200 hover:border-zinc-500'}`}
+      } ${checked ? 'border-cyber-emerald bg-cyber-emerald/10 text-accent-emerald' : 'border-line bg-surface-2 text-soft hover:border-muted'}`}
     >
       <input type={type} name={name} checked={checked} onChange={onChange} className="sr-only" />
       <span className="text-sm font-semibold">{title}</span>
-      {hint && <span className="text-xs text-zinc-400">{hint}</span>}
+      {hint && <span className="text-xs text-muted">{hint}</span>}
     </label>
   );
 }

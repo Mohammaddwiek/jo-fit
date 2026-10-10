@@ -82,7 +82,7 @@ export default function Modal({ open, onClose, title, children, size = 'max-w-lg
         aria-modal="true"
         aria-labelledby={titleId}
         className={cn(
-          'flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface text-zinc-100 shadow-2xl',
+          'flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface text-ink shadow-2xl',
           size,
           panelClassName,
         )}
@@ -95,7 +95,7 @@ export default function Modal({ open, onClose, title, children, size = 'max-w-lg
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-m-1 rounded-lg p-1 text-zinc-400 hover:bg-surface-2 hover:text-zinc-100"
+            className="-m-1 rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-ink"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>

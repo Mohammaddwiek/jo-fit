@@ -49,7 +49,7 @@ export default function ArabBankLogo({ size = 'md', className }: ArabBankLogoPro
         <span
           className={cn(
             'inline-block aspect-[6/5] h-full overflow-hidden rounded-lg bg-white p-0.5 ring-1 ring-white/10',
-            status === 'loading' && 'absolute inset-y-0 left-0 opacity-0',
+            status === 'loading' && 'absolute inset-y-0 start-0 opacity-0',
           )}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

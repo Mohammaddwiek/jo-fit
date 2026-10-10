@@ -16,14 +16,14 @@ const PODIUM_STYLES = {
     order: 'order-2',
     height: 'h-32 sm:h-40',
     pedestal: 'from-amber-500/35 to-amber-900/20 border-cyber-gold shadow-glow-gold',
-    label: 'text-cyber-gold',
+    label: 'text-accent-gold',
     place: '1st',
   },
   2: {
     order: 'order-1',
     height: 'h-24 sm:h-28',
     pedestal: 'from-zinc-300/25 to-zinc-700/10 border-zinc-300/60',
-    label: 'text-zinc-200',
+    label: 'text-soft',
     place: '2nd',
   },
   3: {
@@ -53,12 +53,12 @@ export default function GymLeaderboard({ currentUser, hydrated }: GymLeaderboard
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-col items-center gap-1 text-center">
-        <h1 className="text-2xl font-bold text-zinc-100">Gym Leaderboard</h1>
-        <p className="flex items-center gap-1 text-sm font-medium text-zinc-400">
+        <h1 className="text-2xl font-bold text-ink">Gym Leaderboard</h1>
+        <p className="flex items-center gap-1 text-sm font-medium text-muted">
           Amman Community · {heroesGymLeaderboard.hub}
           <MapPin className="h-3.5 w-3.5 text-alert" aria-hidden />
         </p>
-        <span className="mt-1 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-cyber-emerald">
+        <span className="mt-1 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-accent-emerald">
           {heroesGymLeaderboard.period}
         </span>
       </header>
@@ -76,7 +76,7 @@ export default function GymLeaderboard({ currentUser, hydrated }: GymLeaderboard
           ))}
           {meBelowList && (
             <>
-              <li aria-hidden className="text-center text-zinc-600">
+              <li aria-hidden className="text-center text-muted/70">
                 ⋯
               </li>
               <Row entry={me} hydrated={hydrated} />
@@ -105,11 +105,11 @@ function PodiumSpot({ entry }: { entry: RankedEntry }) {
         )}
       >
         <span className={cn('font-mono text-xl font-black', style.label)}>{style.place}</span>
-        <span className={cn('w-full truncate text-xs font-bold', entry.isCurrentUser ? 'text-cyber-emerald' : 'text-zinc-100')}>
+        <span className={cn('w-full truncate text-xs font-bold', entry.isCurrentUser ? 'text-accent-emerald' : 'text-ink')}>
           {entry.isCurrentUser ? 'You' : entry.name.split(' ')[0]}
         </span>
-        <span className="font-mono text-[11px] font-bold tabular-nums text-zinc-300">({fmt(entry.points)} Pts)</span>
-        <span className="hidden truncate font-mono text-[10px] text-zinc-400 sm:block">
+        <span className="font-mono text-[11px] font-bold tabular-nums text-soft">({fmt(entry.points)} Pts)</span>
+        <span className="hidden truncate font-mono text-[10px] text-muted sm:block">
           {entry.weight} kg @ {entry.formAccuracy}%
         </span>
       </div>
@@ -129,25 +129,25 @@ function Row({ entry, hydrated }: { entry: RankedEntry; hydrated: boolean }) {
           : 'border-line bg-surface',
       )}
     >
-      <span className={cn('w-8 font-mono text-sm font-black', highlight ? 'text-cyber-emerald' : 'text-zinc-400')}>#{entry.rank}</span>
+      <span className={cn('w-8 font-mono text-sm font-black', highlight ? 'text-accent-emerald' : 'text-muted')}>#{entry.rank}</span>
       <span
         aria-hidden
         className={cn(
           'grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-black',
-          highlight ? 'bg-cyber-emerald text-zinc-950' : 'border border-line bg-surface-2 text-zinc-200',
+          highlight ? 'bg-cyber-emerald text-zinc-950' : 'border border-line bg-surface-2 text-soft',
         )}
       >
         {highlight ? 'YOU' : initials(entry.name)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={cn('truncate text-sm font-bold', highlight ? 'text-cyber-emerald' : 'text-zinc-100')}>
+        <p className={cn('truncate text-sm font-bold', highlight ? 'text-accent-emerald' : 'text-ink')}>
           {highlight ? 'You' : entry.name}
         </p>
-        <p className="truncate font-mono text-xs text-zinc-400">
+        <p className="truncate font-mono text-xs text-muted">
           {pending ? '—' : `${entry.weight} kg squat · ${entry.formAccuracy}% accuracy`}
         </p>
       </div>
-      <span className={cn('shrink-0 font-mono text-sm font-black tabular-nums', highlight ? 'text-cyber-emerald' : 'text-cyber-gold')}>
+      <span className={cn('shrink-0 font-mono text-sm font-black tabular-nums', highlight ? 'text-accent-emerald' : 'text-accent-gold')}>
         {pending ? '—' : `${fmt(entry.points)} Pts`}
       </span>
     </li>

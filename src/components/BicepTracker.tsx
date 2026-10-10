@@ -277,20 +277,24 @@ export default function BicepTracker({ config, preview, onSave, onRetry, onLiveC
   const live = camera.status === 'ready' && !ended;
 
   return (
-    <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 text-zinc-100">
+    <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 text-ink">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="text-base font-semibold text-zinc-100">{config.exerciseName}</h2>
-        <p className="font-mono text-xs uppercase tracking-widest text-zinc-400">
+        <h2 className="text-base font-semibold text-ink">{config.exerciseName}</h2>
+        <p className="font-mono text-xs uppercase tracking-widest text-muted">
           Target {config.targetReps} reps · ROM {EXTENDED_ANGLE}° → {CONTRACTED_ANGLE}°
         </p>
       </div>
 
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-cyber-cyan/30 bg-[#050C14] shadow-glow-cyan">
+      {/* The camera stage stays dark and left-to-right in every theme/language (mirrored video + HUD). */}
+      <div
+        dir="ltr"
+        className="dark relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-cyber-cyan/30 bg-[#050C14] text-ink shadow-glow-cyan"
+      >
         <video ref={camera.videoRef} className="hidden" playsInline muted />
         <canvas ref={canvasRef} width={camera.videoWidth} height={camera.videoHeight} className="block h-full w-full -scale-x-100" />
 
         {camera.status === 'loading' && (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center font-mono text-sm text-cyber-cyan">
+          <div className="absolute inset-0 grid place-items-center p-4 text-center font-mono text-sm text-accent-cyan">
             Starting camera &amp; pose model… allow camera access if your browser asks.
           </div>
         )}
@@ -304,7 +308,7 @@ export default function BicepTracker({ config, preview, onSave, onRetry, onLiveC
           <Pill className="bg-cyber-gold text-amber-950 shadow-glow-gold">⚠️ {frameMessage}</Pill>
         )}
         {live && frameIssue === 'LOW_VISIBILITY' && (
-          <Pill className="border border-cyber-gold bg-zinc-950/85 text-cyber-gold">{frameMessage}</Pill>
+          <Pill className="border border-cyber-gold bg-zinc-950/85 text-accent-gold">{frameMessage}</Pill>
         )}
         {live && frameIssue === null && flaring && (
           <Pill className="bg-alert text-white shadow-glow-red">⚠️ Elbows flaring! Pin them to your ribs.</Pill>
@@ -320,7 +324,7 @@ export default function BicepTracker({ config, preview, onSave, onRetry, onLiveC
         )}
 
         {live && (
-          <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-cyber-cyan">
+          <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-accent-cyan">
             {viewMode === 'FRONT'
               ? `${PHASE_LABEL[phase]} · FRONT VIEW · FLARE CHECK ON`
               : `${PHASE_LABEL[phase]} · SIDE VIEW · face camera for flare check`}
@@ -329,9 +333,9 @@ export default function BicepTracker({ config, preview, onSave, onRetry, onLiveC
 
         {ended && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-obsidian/90 p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-400">Set ended · camera off</p>
-            <p className="font-mono text-4xl font-black tabular-nums text-zinc-100">
-              {pad2(validReps)} <span className="text-lg text-zinc-400">/ {pad2(config.targetReps)} valid</span>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted">Set ended · camera off</p>
+            <p className="font-mono text-4xl font-black tabular-nums text-ink">
+              {pad2(validReps)} <span className="text-lg text-muted">/ {pad2(config.targetReps)} valid</span>
             </p>
             <button
               type="button"
@@ -347,32 +351,32 @@ export default function BicepTracker({ config, preview, onSave, onRetry, onLiveC
       <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4">
         <div className="grid grid-cols-3 items-center gap-2">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">Reps logged</p>
-            <p className="font-mono font-black tabular-nums text-zinc-100">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">Reps logged</p>
+            <p className="font-mono font-black tabular-nums text-ink">
               <span className="text-4xl">{pad2(reps.length)}</span>
-              <span className="text-lg text-zinc-400"> / {pad2(config.targetReps)}</span>
+              <span className="text-lg text-muted"> / {pad2(config.targetReps)}</span>
             </p>
-            <p className="text-xs font-medium text-cyber-emerald">{validReps} valid</p>
+            <p className="text-xs font-medium text-accent-emerald">{validReps} valid</p>
           </div>
           <div className="flex justify-center">
             <AccuracyRing value={reps.length > 0 ? formAccuracy : null} />
           </div>
           <div className="min-w-0 text-right">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
               {viewMode === 'FRONT' ? 'Elbow (est.)' : 'Elbow Angle'}
             </p>
-            <p className="font-mono text-2xl font-black tabular-nums text-cyber-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
+            <p className="font-mono text-2xl font-black tabular-nums text-accent-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
               {angle !== null && live ? `${angle}°` : '--°'}
             </p>
-            <p className="font-mono text-sm font-black tabular-nums text-cyber-gold">+{potentialPoints} pts</p>
-            <p className="text-[10px] font-medium text-zinc-500">potential · Arab Bank</p>
+            <p className="font-mono text-sm font-black tabular-nums text-accent-gold">+{potentialPoints} pts</p>
+            <p className="text-[10px] font-medium text-muted">potential · Arab Bank</p>
           </div>
         </div>
         <button
           type="button"
           onClick={endSet}
           disabled={ended || camera.status !== 'ready'}
-          className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-soft hover:border-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
         >
           End Set
         </button>
@@ -418,8 +422,8 @@ function AccuracyRing({ value }: { value: number | null }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono text-lg font-black tabular-nums text-zinc-100">{value === null ? '--' : `${value}%`}</span>
-        <span className="text-[9px] font-medium uppercase text-zinc-400">Form</span>
+        <span className="font-mono text-lg font-black tabular-nums text-ink">{value === null ? '--' : `${value}%`}</span>
+        <span className="text-[9px] font-medium uppercase text-muted">Form</span>
       </div>
     </div>
   );

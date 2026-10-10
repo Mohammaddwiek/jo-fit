@@ -2,18 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme palette (space-separated RGB so Tailwind opacity modifiers work). Light first, dark overrides. */
 :root {
+  color-scheme: light;
+  --c-bg: 248 250 252; /* slate-50 */
+  --c-surface: 255 255 255;
+  --c-surface-2: 241 245 249; /* slate-100 */
+  --c-line: 226 232 240; /* slate-200 */
+  --c-ink: 15 23 42; /* slate-900 */
+  --c-soft: 51 65 85; /* slate-700 */
+  --c-muted: 100 116 139; /* slate-500 */
+  --c-accent-emerald: 4 120 87; /* #047857 */
+  --c-accent-cyan: 14 116 144; /* #0E7490 */
+  --c-accent-gold: 180 83 9; /* #B45309 */
+}
+
+.dark {
   color-scheme: dark;
+  --c-bg: 11 11 14; /* #0B0B0E */
+  --c-surface: 22 22 28; /* #16161C */
+  --c-surface-2: 17 17 22; /* #111116 */
+  --c-line: 38 38 48; /* #262630 */
+  --c-ink: 244 244 245; /* zinc-100 */
+  --c-soft: 212 212 216; /* zinc-300 */
+  --c-muted: 161 161 170; /* zinc-400 */
+  --c-accent-emerald: 0 230 118; /* #00E676 */
+  --c-accent-cyan: 0 229 255; /* #00E5FF */
+  --c-accent-gold: 245 158 11; /* #F59E0B */
 }
 
 html,
 body {
-  @apply bg-obsidian text-zinc-100 antialiased;
+  @apply bg-obsidian text-ink antialiased;
+}
+
+/* Inter has no Arabic letters; in Arabic mode lead with the Arabic font. */
+html[lang='ar'] body {
+  font-family: var(--font-arabic), var(--font-inter), system-ui, sans-serif;
 }
 
 ::selection {
   background: rgba(0, 230, 118, 0.3);
-  color: #ffffff;
 }
 
 :focus-visible {

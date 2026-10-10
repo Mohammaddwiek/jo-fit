@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle2, Info, RotateCcw, XCircle } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/cn';
 import { CURL_ERROR_PRIORITY, type CurlError, type CurlRep } from '../lib/curlLogic';
 import { FORM_SCORE_THRESHOLD } from '../lib/progressiveOverload';
@@ -44,24 +45,25 @@ function outcomeText(o: SessionSummary): string {
 }
 
 export default function BicepSetResults({ reps, targetReps, exerciseName, outcome, onSave, onRetry }: BicepSetResultsProps) {
+  const { t } = useLanguage();
   const validReps = reps.filter((rep) => rep.isValid).length;
   const errorsSeen = CURL_ERROR_PRIORITY.filter((error) => reps.some((rep) => rep.errorType === error));
   const flareNeverChecked = reps.length > 0 && !reps.some((rep) => rep.flareChecked);
 
   return (
-    <section className="mx-auto w-full max-w-[640px] rounded-2xl border border-[#262630] bg-[#16161C] p-6 text-zinc-100">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">{exerciseName}</p>
+    <section className="mx-auto w-full max-w-[640px] rounded-2xl border border-line bg-surface p-6 text-ink">
+      <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">{exerciseName}</p>
       <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
         <h2 className="text-xl font-bold">Set Complete - Form Analysis</h2>
         <p className="font-mono font-black tabular-nums">
-          <span className="text-4xl text-cyber-emerald">{validReps}</span>
-          <span className="text-lg text-zinc-400"> / {targetReps} valid reps</span>
+          <span className="text-4xl text-accent-emerald">{validReps}</span>
+          <span className="text-lg text-muted"> / {targetReps} valid reps</span>
         </p>
       </div>
 
       <h3 className="mt-5 text-sm font-bold">Rep Breakdown</h3>
       {reps.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-400">No reps were logged in this set.</p>
+        <p className="mt-2 text-sm text-muted">No reps were logged in this set.</p>
       ) : (
         <ol className="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
           {reps.map((rep) => (
@@ -78,7 +80,7 @@ export default function BicepSetResults({ reps, targetReps, exerciseName, outcom
                 <XCircle className="h-4 w-4 shrink-0 text-alert" aria-hidden />
               )}
               <span className="font-mono font-bold tabular-nums">Rep {rep.repNumber}:</span>
-              <span className={rep.isValid ? 'text-[#10B981]' : 'text-red-300'}>
+              <span className={rep.isValid ? 'text-emerald-700 dark:text-[#10B981]' : 'text-red-600 dark:text-red-300'}>
                 {rep.isValid || !rep.errorType || rep.errorType === 'perfect' ? 'Perfect Form' : ERROR_NAMES[rep.errorType]}
               </span>
             </li>
@@ -89,18 +91,18 @@ export default function BicepSetResults({ reps, targetReps, exerciseName, outcom
       <h3 className="mt-5 text-sm font-bold">AI Form Corrections</h3>
       <div className="mt-2 space-y-2">
         {errorsSeen.length === 0 && reps.length > 0 && (
-          <p className="flex items-start gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-3 text-sm text-zinc-200">
+          <p className="flex items-start gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-3 text-sm text-soft">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" aria-hidden />
             Clean set — every rep had full range with elbows pinned.
           </p>
         )}
         {errorsSeen.map((error) => (
-          <p key={error} className="rounded-xl border border-cyber-gold/30 bg-cyber-gold/10 p-3 text-sm leading-relaxed text-amber-100">
+          <p key={error} className="rounded-xl border border-cyber-gold/30 bg-cyber-gold/10 p-3 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
             {CORRECTIONS[error]}
           </p>
         ))}
         {flareNeverChecked && (
-          <p className="flex items-start gap-2 text-xs text-zinc-400">
+          <p className="flex items-start gap-2 text-xs text-muted">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             Elbow flare check needs a front-facing view.
           </p>
@@ -108,24 +110,24 @@ export default function BicepSetResults({ reps, targetReps, exerciseName, outcom
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-cyber-gold/30 bg-bank-navy/60 p-3">
-        <p className="text-sm text-zinc-200">{outcomeText(outcome)}</p>
-        <span className="shrink-0 font-mono text-2xl font-black tabular-nums text-cyber-gold">+{outcome.pointsEarned}</span>
+        <p className="text-sm text-soft">{outcomeText(outcome)}</p>
+        <span className="shrink-0 font-mono text-2xl font-black tabular-nums text-accent-gold">+{outcome.pointsEarned}</span>
       </div>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-line py-3 text-sm font-semibold text-zinc-200 hover:border-zinc-500"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-line py-3 text-sm font-semibold text-soft hover:border-muted"
         >
-          <RotateCcw className="h-4 w-4" aria-hidden /> Retry Set
+          <RotateCcw className="h-4 w-4" aria-hidden /> {t('button.retrySet')}
         </button>
         <button
           type="button"
           onClick={onSave}
           className="flex-1 rounded-xl bg-cyber-emerald py-3 text-sm font-extrabold text-zinc-950 shadow-glow-emerald hover:brightness-110"
         >
-          Save &amp; Continue
+          {t('button.saveContinue')}
         </button>
       </div>
     </section>

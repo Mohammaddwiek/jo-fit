@@ -550,16 +550,20 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
   const kneeSafe = config.depth.tooDeepAngle !== undefined;
 
   return (
-    <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 text-zinc-100">
+    <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 text-ink">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="text-base font-semibold text-zinc-100">{config.exerciseName}</h2>
-        <p className="font-mono text-xs uppercase tracking-widest text-zinc-400">
+        <h2 className="text-base font-semibold text-ink">{config.exerciseName}</h2>
+        <p className="font-mono text-xs uppercase tracking-widest text-muted">
           {isMultiSet ? `Set ${setNumber} / ${config.sets} · ` : ''}Target {config.targetReps} reps
           {kneeSafe ? ' · Knee-safe' : ''}
         </p>
       </div>
 
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-cyber-cyan/30 bg-[#050C14] shadow-glow-cyan">
+      {/* The camera stage stays dark and left-to-right in every theme/language (mirrored video + HUD). */}
+      <div
+        dir="ltr"
+        className="dark relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-cyber-cyan/30 bg-[#050C14] text-ink shadow-glow-cyan"
+      >
         <video ref={videoRef} className="hidden" playsInline muted />
         <canvas
           ref={canvasRef}
@@ -569,7 +573,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
         />
 
         {status === 'loading' && (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center font-mono text-sm text-cyber-cyan">
+          <div className="absolute inset-0 grid place-items-center p-4 text-center font-mono text-sm text-accent-cyan">
             Starting camera &amp; pose model… allow camera access if your browser asks.
           </div>
         )}
@@ -598,7 +602,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
         {status === 'ready' && frameIssue === 'LOW_VISIBILITY' && !resting && (
           <div
             role="alert"
-            className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full border border-cyber-gold bg-zinc-950/85 px-4 py-2 text-center text-sm font-bold text-cyber-gold"
+            className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full border border-cyber-gold bg-zinc-950/85 px-4 py-2 text-center text-sm font-bold text-accent-gold"
           >
             Tracking lost — improve lighting or face the camera
           </div>
@@ -617,16 +621,16 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
 
         {resting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-950/80 p-4 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted">
               Rest · Next: Set {completedSets.length + 1} / {config.sets}
             </p>
-            <p className="font-mono text-6xl font-bold tabular-nums text-cyber-cyan [text-shadow:0_0_18px_rgba(0,229,255,0.6)]">
+            <p className="font-mono text-6xl font-bold tabular-nums text-accent-cyan [text-shadow:0_0_18px_rgba(0,229,255,0.6)]">
               {restRemaining}s
             </p>
             <button
               type="button"
               onClick={() => setRestRemaining(null)}
-              className="rounded-lg border border-cyber-cyan/60 px-4 py-2 text-sm font-semibold text-cyber-cyan hover:bg-cyber-cyan/10"
+              className="rounded-lg border border-cyber-cyan/60 px-4 py-2 text-sm font-semibold text-accent-cyan hover:bg-cyber-cyan/10"
             >
               Skip Rest
             </button>
@@ -634,7 +638,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
         )}
 
         {status === 'ready' && (
-          <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-cyber-cyan">
+          <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-accent-cyan">
             {resting
               ? 'RESTING'
               : viewMode === 'FRONT'
@@ -647,26 +651,26 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
       <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4">
         <div className="grid grid-cols-3 items-center gap-2">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
               {isMultiSet ? `Reps · Set ${setNumber}` : 'Reps'}
             </p>
-            <p className="font-mono font-black tabular-nums text-zinc-100">
+            <p className="font-mono font-black tabular-nums text-ink">
               <span className="text-4xl">{pad2(validReps)}</span>
-              <span className="text-lg text-zinc-400"> / {pad2(config.targetReps)}</span>
+              <span className="text-lg text-muted"> / {pad2(config.targetReps)}</span>
             </p>
           </div>
           <div className="flex justify-center">
             <AccuracyRing value={totalReps > 0 ? formAccuracy : null} />
           </div>
           <div className="min-w-0 text-right">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
               {viewMode === 'FRONT' ? 'Knee (est.)' : 'Knee Angle'}
             </p>
-            <p className="font-mono text-2xl font-black tabular-nums text-cyber-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
+            <p className="font-mono text-2xl font-black tabular-nums text-accent-cyan [text-shadow:0_0_12px_rgba(0,229,255,0.5)]">
               {currentAngle !== null ? `${currentAngle}°` : '--°'}
             </p>
-            <p className="font-mono text-sm font-black tabular-nums text-cyber-gold">+{potentialPoints} pts</p>
-            <p className="text-[10px] font-medium text-zinc-500">potential · Arab Bank</p>
+            <p className="font-mono text-sm font-black tabular-nums text-accent-gold">+{potentialPoints} pts</p>
+            <p className="text-[10px] font-medium text-muted">potential · Arab Bank</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -674,7 +678,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
             <button
               type="button"
               onClick={handleEndWorkout}
-              className="flex-1 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+              className="flex-1 rounded-xl border border-line px-4 py-3 text-sm font-semibold text-soft hover:border-muted hover:text-ink"
             >
               End Workout
             </button>
@@ -717,8 +721,8 @@ function AccuracyRing({ value }: { value: number | null }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono text-lg font-black tabular-nums text-zinc-100">{value === null ? '--' : `${value}%`}</span>
-        <span className="text-[9px] font-medium uppercase text-zinc-400">Form</span>
+        <span className="font-mono text-lg font-black tabular-nums text-ink">{value === null ? '--' : `${value}%`}</span>
+        <span className="text-[9px] font-medium uppercase text-muted">Form</span>
       </div>
     </div>
   );

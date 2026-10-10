@@ -40,7 +40,7 @@ interface WorkoutPlanTabProps {
 }
 
 const DIFFICULTY_BADGE: Record<Difficulty, string> = {
-  Low: 'border-cyber-emerald/50 bg-cyber-emerald/10 text-cyber-emerald',
+  Low: 'border-cyber-emerald/50 bg-cyber-emerald/10 text-accent-emerald',
   Moderate: 'border-amber-400/50 bg-amber-400/10 text-amber-400',
   High: 'border-rose-500/50 bg-rose-500/10 text-rose-400',
 };
@@ -80,10 +80,10 @@ export default function WorkoutPlanTab({
   if (!plan) {
     return (
       <Card className="flex flex-col items-center gap-4 border-dashed border-cyber-emerald/40 px-6 py-10 text-center">
-        <ClipboardList className="h-10 w-10 text-cyber-emerald" aria-hidden />
+        <ClipboardList className="h-10 w-10 text-accent-emerald" aria-hidden />
         <div>
-          <h2 className="text-lg font-bold text-zinc-100">No training plan yet</h2>
-          <p className="mt-1 max-w-md text-sm font-medium text-zinc-400">
+          <h2 className="text-lg font-bold text-ink">No training plan yet</h2>
+          <p className="mt-1 max-w-md text-sm font-medium text-muted">
             Answer 3 quick questions about your body, schedule and injuries. Jo-Fit builds a safe 7-day plan and links
             squats to live AI camera tracking.
           </p>
@@ -104,25 +104,25 @@ export default function WorkoutPlanTab({
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">My AI Plan</p>
-            <h2 className="mt-1 text-xl font-bold text-zinc-100">{plan.planSummary.splitName}</h2>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">My AI Plan</p>
+            <h2 className="mt-1 text-xl font-bold text-ink">{plan.planSummary.splitName}</h2>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-mono font-bold text-zinc-200">{plan.planSummary.daysPerWeek} training days / wk</span>
+              <span className="font-mono font-bold text-soft">{plan.planSummary.daysPerWeek} training days / wk</span>
               <span className={cn('rounded-full border px-2.5 py-0.5 text-xs font-bold', DIFFICULTY_BADGE[plan.planSummary.overallDifficulty])}>
                 {plan.planSummary.overallDifficulty} difficulty
               </span>
-              <span className="font-mono text-xs text-zinc-400">
+              <span className="font-mono text-xs text-muted">
                 {plan.intensity} · RPE {plan.rpe}
               </span>
             </div>
-            <p className="mt-2 flex items-center gap-1.5 text-sm text-zinc-300">
-              <ShieldCheck className="h-4 w-4 text-cyber-emerald" aria-hidden /> {plan.planSummary.injuryProtocol}
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-soft">
+              <ShieldCheck className="h-4 w-4 text-accent-emerald" aria-hidden /> {plan.planSummary.injuryProtocol}
             </p>
           </div>
           <button
             type="button"
             onClick={onOpenSurvey}
-            className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-cyber-emerald hover:text-cyber-emerald"
+            className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-soft hover:border-cyber-emerald hover:text-accent-emerald"
           >
             <RefreshCw className="h-4 w-4" aria-hidden /> Retake Survey / Regenerate Plan
           </button>
@@ -136,12 +136,12 @@ export default function WorkoutPlanTab({
                 className={cn(
                   'flex gap-3 rounded-xl border p-3 text-sm',
                   warning.kind === 'age'
-                    ? 'border-cyber-cyan/30 bg-cyber-cyan/5 text-zinc-200'
-                    : 'border-amber-400/40 bg-amber-400/10 text-amber-100',
+                    ? 'border-cyber-cyan/30 bg-cyber-cyan/5 text-soft'
+                    : 'border-amber-400/40 bg-amber-400/10 text-amber-900 dark:text-amber-100',
                 )}
               >
                 <AlertTriangle
-                  className={cn('mt-0.5 h-4 w-4 shrink-0', warning.kind === 'age' ? 'text-cyber-cyan' : 'text-amber-400')}
+                  className={cn('mt-0.5 h-4 w-4 shrink-0', warning.kind === 'age' ? 'text-accent-cyan' : 'text-amber-400')}
                   aria-hidden
                 />
                 <div>
@@ -171,13 +171,13 @@ export default function WorkoutPlanTab({
                   className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-white/[0.02]"
                 >
                   <span className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="font-bold text-zinc-100">{day.dayTitle}</span>
+                    <span className="font-bold text-ink">{day.dayTitle}</span>
                     {isToday && (
                       <span className="rounded-full bg-cyber-emerald px-2 py-0.5 text-[10px] font-extrabold uppercase text-zinc-950">Today</span>
                     )}
                     {!training && <RecoveryPill />}
                   </span>
-                  <span className="flex shrink-0 items-center gap-3 text-xs font-medium text-zinc-400">
+                  <span className="flex shrink-0 items-center gap-3 text-xs font-medium text-muted">
                     {training ? `${day.exercises.length} exercises` : 'Rest'}
                     <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} aria-hidden />
                   </span>
@@ -215,7 +215,7 @@ export default function WorkoutPlanTab({
 
 function RecoveryPill() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-cyber-emerald/50 bg-cyber-emerald/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyber-emerald">
+    <span className="inline-flex items-center gap-1 rounded-full border border-cyber-emerald/50 bg-cyber-emerald/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-emerald">
       <Leaf className="h-3 w-3" aria-hidden /> Recovery Day
     </span>
   );
@@ -225,13 +225,13 @@ function RecoveryCard({ day }: { day: RecoveryDay }) {
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-bold text-zinc-100">{day.recovery.title}</p>
+        <p className="font-bold text-ink">{day.recovery.title}</p>
         <RecoveryPill />
       </div>
       <ul className="mt-3 space-y-2">
         {day.recovery.items.map((item) => (
-          <li key={item} className="flex gap-2 text-sm text-zinc-300">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyber-emerald" aria-hidden />
+          <li key={item} className="flex gap-2 text-sm text-soft">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent-emerald" aria-hidden />
             {item}
           </li>
         ))}
@@ -307,7 +307,7 @@ function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSa
   return (
     <article className={cn('flex flex-col rounded-xl border bg-surface-2 p-4', tracked ? 'border-cyber-emerald/40' : 'border-line')}>
       <div className="flex items-start justify-between gap-2">
-        <h4 className="font-bold leading-snug text-zinc-100">{exercise.name}</h4>
+        <h4 className="font-bold leading-snug text-ink">{exercise.name}</h4>
         <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', DIFFICULTY_BADGE[exercise.difficulty])}>
           {exercise.difficulty}
         </span>
@@ -318,7 +318,7 @@ function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSa
         <Spec label="Reps" value={exercise.reps} />
         <Spec label="Rest" value={exercise.rest} />
       </dl>
-      {exercise.targetMetric && <p className="mt-2 text-xs font-medium text-zinc-400">Target: {exercise.targetMetric}</p>}
+      {exercise.targetMetric && <p className="mt-2 text-xs font-medium text-muted">Target: {exercise.targetMetric}</p>}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button
@@ -329,8 +329,8 @@ function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSa
           className={cn(
             'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold transition',
             metricsOpen
-              ? 'border-cyber-gold bg-cyber-gold/15 text-cyber-gold'
-              : 'border-cyber-gold/40 text-cyber-gold/90 hover:bg-cyber-gold/10',
+              ? 'border-cyber-gold bg-cyber-gold/15 text-accent-gold'
+              : 'border-cyber-gold/40 text-accent-gold/90 hover:bg-cyber-gold/10',
           )}
         >
           ⚡ Overload Metrics
@@ -350,7 +350,7 @@ function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSa
             type="button"
             aria-disabled="true"
             onClick={() => showToast(DEMO_TOAST)}
-            className="inline-flex cursor-not-allowed items-center gap-1 rounded-full border border-line px-3 py-1.5 text-left text-xs font-semibold text-zinc-400 opacity-50"
+            className="inline-flex cursor-not-allowed items-center gap-1 rounded-full border border-line px-3 py-1.5 text-left text-xs font-semibold text-muted opacity-50"
           >
             ⚡ AI Pose Tracking (Vision Model In Training / Demo)
           </button>
@@ -371,10 +371,10 @@ function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSa
               {metrics.map((metric) => (
                 <div key={metric.label}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-xs font-medium text-zinc-400">{metric.label}</dt>
-                    <dd className="text-right font-mono text-sm font-black tabular-nums text-cyber-gold">{metric.value}</dd>
+                    <dt className="text-xs font-medium text-muted">{metric.label}</dt>
+                    <dd className="text-right font-mono text-sm font-black tabular-nums text-accent-gold">{metric.value}</dd>
                   </div>
-                  <p className="text-[11px] text-zinc-500">{metric.note}</p>
+                  <p className="text-[11px] text-muted">{metric.note}</p>
                 </div>
               ))}
             </dl>
@@ -388,8 +388,8 @@ function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSa
 function Spec({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-surface px-2 py-1.5">
-      <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{label}</dt>
-      <dd className="font-mono font-bold tabular-nums text-zinc-100">{value}</dd>
+      <dt className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="font-mono font-bold tabular-nums text-ink">{value}</dd>
     </div>
   );
 }

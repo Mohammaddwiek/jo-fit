@@ -5,7 +5,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ClipboardList, Gem, Siren, UserRound, X } from 'lucide-react';
 import ArabBankLogo from './ArabBankLogo';
 import { TABS, type TabId } from './BottomNav';
+import { LanguageToggle, ThemeToggle } from './SettingsToggles';
+import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/cn';
+import type { TranslationKey } from '../locales/en';
 
 const FOCUSABLE = 'a[href], button:not([disabled])';
 
@@ -21,11 +24,17 @@ interface SideDrawerProps {
   onOpenSos: () => void;
 }
 
-const DRAWER_LABELS: Record<TabId, string> = {
-  home: 'Home',
-  plan: 'Workout Plan & AI Studio',
-  leaderboard: 'Gym Leaderboard',
-  wallet: 'Rewards & Redemptions',
+const DRAWER_LABELS: Record<TabId, TranslationKey> = {
+  home: 'drawer.home',
+  plan: 'drawer.plan',
+  leaderboard: 'drawer.leaderboard',
+  wallet: 'drawer.rewards',
+};
+
+const LEVEL_KEYS: Record<string, TranslationKey> = {
+  Beginner: 'level.Beginner',
+  Intermediate: 'level.Intermediate',
+  Advanced: 'level.Advanced',
 };
 
 export default function SideDrawer({
@@ -40,6 +49,9 @@ export default function SideDrawer({
   onOpenSos,
 }: SideDrawerProps) {
   const panelRef = useRef<HTMLElement>(null);
+  const { t, dir } = useLanguage();
+  const offscreen = dir === 'rtl' ? '100%' : '-100%';
+  const levelLabel = LEVEL_KEYS[experience] ? t(LEVEL_KEYS[experience]) : experience;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -96,32 +108,33 @@ export default function SideDrawer({
             ref={panelRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Menu"
-            initial={{ x: '-100%' }}
+            aria-label={t('drawer.menu')}
+            // Slides in from the start edge: left in English, right in Arabic.
+            initial={{ x: offscreen }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
+            exit={{ x: offscreen }}
             transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            className="absolute inset-y-0 left-0 flex w-80 max-w-[85vw] flex-col border-r border-line bg-surface-2 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
+            className="absolute inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col border-e border-slate-200 bg-slate-50 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] dark:border-[#262630] dark:bg-[#111116]"
           >
             <div className="flex items-start justify-between gap-3 border-b border-line p-4">
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 place-items-center rounded-full border border-cyber-emerald/50 bg-cyber-emerald/10">
-                  <UserRound className="h-5 w-5 text-cyber-emerald" aria-hidden />
+                  <UserRound className="h-5 w-5 text-accent-emerald" aria-hidden />
                 </span>
                 <div>
-                  <p className="font-bold text-zinc-100">Jo-Fit Athlete</p>
-                  <p className="text-xs font-medium text-zinc-400">{hydrated ? `${experience} member` : ' '}</p>
-                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-cyber-emerald/15 px-2.5 py-0.5 font-mono text-xs font-black tabular-nums text-cyber-emerald">
-                    <Gem className="h-3 w-3 text-cyber-gold" aria-hidden />
-                    {hydrated ? points.toLocaleString('en-US') : '—'} Fit Pts
+                  <p className="font-bold text-slate-900 dark:text-zinc-100">{t('drawer.athlete')}</p>
+                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">{hydrated ? t('drawer.member', { level: levelLabel }) : ' '}</p>
+                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-cyber-emerald/15 px-2.5 py-0.5 font-mono text-xs font-black tabular-nums text-accent-emerald">
+                    <Gem className="h-3 w-3 text-accent-gold" aria-hidden />
+                    {hydrated ? points.toLocaleString('en-US') : '—'} {t('drawer.fitPts')}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close menu"
-                className="rounded-lg p-1.5 text-zinc-400 hover:bg-surface hover:text-zinc-100"
+                aria-label={t('drawer.close')}
+                className="rounded-lg p-1.5 text-muted hover:bg-surface hover:text-ink"
               >
                 <X className="h-5 w-5" aria-hidden />
               </button>
@@ -140,11 +153,11 @@ export default function SideDrawer({
                         aria-current={active ? 'page' : undefined}
                         className={cn(
                           'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
-                          active ? 'bg-cyber-emerald/10 text-cyber-emerald' : 'text-zinc-300 hover:bg-surface hover:text-zinc-100',
+                          active ? 'bg-cyber-emerald/10 text-accent-emerald' : 'text-soft hover:bg-surface hover:text-ink',
                         )}
                       >
                         <Icon className="h-4 w-4" aria-hidden />
-                        {DRAWER_LABELS[tab.id]}
+                        {t(DRAWER_LABELS[tab.id])}
                       </button>
                     </li>
                   );
@@ -153,10 +166,10 @@ export default function SideDrawer({
                   <button
                     type="button"
                     onClick={() => go(onOpenSurvey)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-300 hover:bg-surface hover:text-zinc-100"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-soft hover:bg-surface hover:text-ink"
                   >
                     <ClipboardList className="h-4 w-4" aria-hidden />
-                    Retake Plan Survey
+                    {t('drawer.survey')}
                   </button>
                 </li>
                 <li>
@@ -166,16 +179,24 @@ export default function SideDrawer({
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-alert hover:bg-alert/10"
                   >
                     <Siren className="h-4 w-4" aria-hidden />
-                    Emergency Assist (SOS)
+                    {t('drawer.sos')}
                   </button>
                 </li>
               </ul>
+
+              <div className="mt-4 border-t border-line pt-4">
+                <p className="px-3 text-[11px] font-medium uppercase tracking-wide text-muted">{t('drawer.settings')}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 px-3">
+                  <ThemeToggle withLabel />
+                  <LanguageToggle withLabel />
+                </div>
+              </div>
             </nav>
 
-            <div className="m-3 flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-3">
+            <div className="m-3 flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-3 shadow-md dark:shadow-sm">
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Official Health Partner</p>
-                <p className="text-sm font-bold text-zinc-100">Arab Bank</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{t('drawer.partner')}</p>
+                <p className="text-sm font-bold text-ink">{t('drawer.bank')}</p>
               </div>
               <ArabBankLogo size="md" />
             </div>

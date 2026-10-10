@@ -14,6 +14,7 @@ import SideDrawer from '../components/SideDrawer';
 import WorkoutPlanTab from '../components/WorkoutPlanTab';
 import WorkoutSurveyModal from '../components/WorkoutSurveyModal';
 import { useToast } from '../components/ui/Toast';
+import { useLanguage } from '../context/LanguageContext';
 import { unlockAudio } from '../lib/audioFeedback';
 import { findExercise, type PlanExercise } from '../lib/planGenerator';
 import { applyWorkoutResult, useJoFitState, type SessionSummary } from '../lib/useJoFitState';
@@ -23,7 +24,7 @@ import { buildPlanConfig, buildStandaloneConfig, type SquatWorkoutResult } from 
 const SquatTracker = dynamic(() => import('../components/SquatTracker'), {
   ssr: false,
   loading: () => (
-    <div className="grid aspect-[4/3] w-full place-items-center rounded-2xl border border-cyber-cyan/30 bg-[#050C14] font-mono text-sm text-cyber-cyan">
+    <div className="dark grid aspect-[4/3] w-full place-items-center rounded-2xl border border-cyber-cyan/30 bg-[#050C14] font-mono text-sm text-accent-cyan">
       Loading tracker…
     </div>
   ),
@@ -32,7 +33,7 @@ const SquatTracker = dynamic(() => import('../components/SquatTracker'), {
 const BicepTracker = dynamic(() => import('../components/BicepTracker'), {
   ssr: false,
   loading: () => (
-    <div className="grid aspect-[4/3] w-full place-items-center rounded-2xl border border-cyber-cyan/30 bg-[#050C14] font-mono text-sm text-cyber-cyan">
+    <div className="dark grid aspect-[4/3] w-full place-items-center rounded-2xl border border-cyber-cyan/30 bg-[#050C14] font-mono text-sm text-accent-cyan">
       Loading tracker…
     </div>
   ),
@@ -74,6 +75,7 @@ export default function Home() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [todayIndex, setTodayIndex] = useState<number | null>(null);
   const showToast = useToast();
+  const { t } = useLanguage();
 
   // Browser-only values are read after mount so the server and first client render match.
   useEffect(() => {
@@ -177,27 +179,27 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setStarted(false)}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-zinc-300 hover:bg-surface hover:text-zinc-100"
+                      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-soft hover:bg-surface hover:text-ink"
                     >
-                      <ArrowLeft className="h-4 w-4" aria-hidden /> Back to plan
+                      <ArrowLeft className="h-4 w-4 rtl:rotate-180" aria-hidden /> {t('studio.back')}
                     </button>
                     {cameraLive ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-cyber-emerald/60 px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-cyber-emerald">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-cyber-emerald/60 px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-accent-emerald">
                         <span className="h-2 w-2 animate-pulse-slow rounded-full bg-cyber-emerald shadow-glow-emerald" aria-hidden />
-                        LIVE · AI TRACKING
+                        {t('studio.live')}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-zinc-400">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-muted">
                         <span className="h-2 w-2 rounded-full bg-zinc-500" aria-hidden />
-                        CAMERA OFF
+                        {t('studio.cameraOff')}
                       </span>
                     )}
                   </div>
                   {config.exercise === 'curl' ? (
                     <>
-                      <h1 className="text-2xl font-bold text-zinc-100">AI Skeleton Tracking · Bicep Curls</h1>
-                      <p className="text-xs font-medium text-zinc-400">
-                        Face the camera with your head and torso in frame. Keep elbows pinned and use the full range.
+                      <h1 className="text-2xl font-bold text-ink">{t('studio.curlTitle')}</h1>
+                      <p className="text-xs font-medium text-muted">
+                        {t('studio.curlTip')}
                       </p>
                       <BicepTracker
                         key={trackerRun}
@@ -210,9 +212,9 @@ export default function Home() {
                     </>
                   ) : (
                     <>
-                      <h1 className="text-2xl font-bold text-zinc-100">AI Skeleton Tracking</h1>
-                      <p className="text-xs font-medium text-zinc-400">
-                        Stand 2–3 m back with your full body visible. Side-on is most accurate; facing the camera also works.
+                      <h1 className="text-2xl font-bold text-ink">{t('studio.title')}</h1>
+                      <p className="text-xs font-medium text-muted">
+                        {t('studio.squatTip')}
                       </p>
                       <SquatTracker key={trackerRun} config={config} onFinish={handleFinish} />
                     </>

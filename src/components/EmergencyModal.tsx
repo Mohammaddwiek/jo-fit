@@ -74,7 +74,7 @@ export default function EmergencyModal({ open, onClose, contact, onSaveContact }
               <Siren className="h-7 w-7 text-alert" aria-hidden />
             </span>
           </span>
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-400">Workout stopped · camera off</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">Workout stopped · camera off</p>
         </div>
         <a
           href="tel:911"
@@ -82,33 +82,33 @@ export default function EmergencyModal({ open, onClose, contact, onSaveContact }
         >
           <Phone className="h-6 w-6" aria-hidden /> Call 911 Now
         </a>
-        <p className="-mt-2 text-center text-xs text-zinc-400">
+        <p className="-mt-2 text-center text-xs text-muted">
           911 is Jordan&apos;s unified emergency number (police, ambulance, civil defense).
         </p>
 
-        <ol className="list-decimal space-y-1.5 rounded-xl border border-line bg-surface-2 py-3 pl-8 pr-4 text-sm text-zinc-200">
+        <ol className="list-decimal space-y-1.5 rounded-xl border border-line bg-surface-2 py-3 pl-8 pr-4 text-sm text-soft">
           <li>Stop exercising immediately.</li>
           <li>Sit or lie down somewhere safe and breathe slowly.</li>
           <li>Call for help if you have chest pain, dizziness, fainting, or an injury.</li>
         </ol>
 
         <section aria-labelledby="sos-contact-heading" className="rounded-xl border border-line bg-surface-2 p-4">
-          <h3 id="sos-contact-heading" className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-200">
-            <UserRound className="h-4 w-4 text-cyber-emerald" aria-hidden /> Personal emergency contact
+          <h3 id="sos-contact-heading" className="mb-3 flex items-center gap-2 text-sm font-semibold text-soft">
+            <UserRound className="h-4 w-4 text-accent-emerald" aria-hidden /> Personal emergency contact
           </h3>
 
           {showForm ? (
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-xs text-zinc-400">
+              <label className="flex flex-col gap-1 text-xs text-muted">
                 Name
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="name"
-                  className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-zinc-100 focus:border-cyber-emerald focus:outline-none focus:ring-2 focus:ring-cyber-emerald/40"
+                  className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-cyber-emerald focus:outline-none focus:ring-2 focus:ring-cyber-emerald/40"
                 />
               </label>
-              <label className="flex flex-col gap-1 text-xs text-zinc-400">
+              <label className="flex flex-col gap-1 text-xs text-muted">
                 Phone
                 <input
                   value={phone}
@@ -118,7 +118,7 @@ export default function EmergencyModal({ open, onClose, contact, onSaveContact }
                   autoComplete="tel"
                   placeholder="+962 7X XXX XXXX"
                   aria-invalid={error ? true : undefined}
-                  className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm text-zinc-100 focus:border-cyber-emerald focus:outline-none focus:ring-2 focus:ring-cyber-emerald/40"
+                  className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm text-ink focus:border-cyber-emerald focus:outline-none focus:ring-2 focus:ring-cyber-emerald/40"
                 />
               </label>
               <p role="alert" className="min-h-[1rem] text-xs text-rose-400">
@@ -135,7 +135,7 @@ export default function EmergencyModal({ open, onClose, contact, onSaveContact }
                   <button
                     type="button"
                     onClick={() => setEditing(false)}
-                    className="rounded-lg border border-line px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500"
+                    className="rounded-lg border border-line px-4 py-2 text-sm text-soft hover:border-muted"
                   >
                     Cancel
                   </button>
@@ -146,15 +146,15 @@ export default function EmergencyModal({ open, onClose, contact, onSaveContact }
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href={telHref(contact.phone)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-500/60 py-2.5 text-sm font-bold text-rose-300 hover:bg-rose-500/10"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-500/60 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-500/10 dark:text-rose-300"
               >
                 <Phone className="h-4 w-4" aria-hidden /> Call {contact.name}
               </a>
-              <span className="font-mono text-xs text-zinc-400">{contact.phone}</span>
+              <span className="font-mono text-xs text-muted">{contact.phone}</span>
               <button
                 type="button"
                 onClick={startEditing}
-                className="rounded-lg px-3 py-2 text-xs font-semibold text-cyber-emerald hover:bg-cyber-emerald/10"
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-accent-emerald hover:bg-cyber-emerald/10"
               >
                 Edit
               </button>
