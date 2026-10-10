@@ -37,7 +37,11 @@ export const MIN_REP_MS = 400;
 const MIN_VISIBILITY = 0.6;
 const MIN_NOSE_Y = 0.05;
 const MAX_HIP_Y = 0.98;
-const ANGLE_SMOOTHING = 0.5;
+/**
+ * Weight of the newest frame in the angle smoothing. Higher = the readout follows the arm with
+ * less lag; frame debouncing (ERROR_DEBOUNCE_FRAMES) handles jitter, so heavy smoothing isn't needed.
+ */
+const ANGLE_SMOOTHING = 0.7;
 const FOREARM_SMOOTHING = 0.1;
 /** Shoulder spread below this fraction of upper-arm length means the user is side-on. */
 const SIDE_VIEW_SHOULDER_SPREAD = 0.35;

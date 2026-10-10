@@ -66,6 +66,8 @@ export default function Home() {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [trackerRun, setTrackerRun] = useState(0);
   const [started, setStarted] = useState(false);
+  // The curl tracker reports when its camera stops (end of set); squat sets are live while open.
+  const [curlCameraLive, setCurlCameraLive] = useState(true);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [sosOpen, setSosOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
@@ -97,6 +99,7 @@ export default function Home() {
         : buildStandaloneConfig(data.profile.targetReps, kneeSafe),
     [selectedExercise, kneeSafe, data.profile.targetReps],
   );
+  const cameraLive = config.exercise !== 'curl' || curlCameraLive;
 
   const selectTab = (next: TabId) => {
     if (next !== tab) window.scrollTo({ top: 0 });
@@ -178,10 +181,17 @@ export default function Home() {
                     >
                       <ArrowLeft className="h-4 w-4" aria-hidden /> Back to plan
                     </button>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-cyber-emerald/60 px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-cyber-emerald">
-                      <span className="h-2 w-2 animate-pulse-slow rounded-full bg-cyber-emerald shadow-glow-emerald" aria-hidden />
-                      LIVE · AI TRACKING
-                    </span>
+                    {cameraLive ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-cyber-emerald/60 px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-cyber-emerald">
+                        <span className="h-2 w-2 animate-pulse-slow rounded-full bg-cyber-emerald shadow-glow-emerald" aria-hidden />
+                        LIVE · AI TRACKING
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 font-mono text-[11px] font-bold tracking-[0.15em] text-zinc-400">
+                        <span className="h-2 w-2 rounded-full bg-zinc-500" aria-hidden />
+                        CAMERA OFF
+                      </span>
+                    )}
                   </div>
                   {config.exercise === 'curl' ? (
                     <>
@@ -195,6 +205,7 @@ export default function Home() {
                         preview={(result) => applyWorkoutResult(data, result).summary}
                         onSave={handleCurlSave}
                         onRetry={() => setTrackerRun((n) => n + 1)}
+                        onLiveChange={setCurlCameraLive}
                       />
                     </>
                   ) : (

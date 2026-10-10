@@ -12,6 +12,7 @@ import {
   type Side,
 } from '../lib/angleMath';
 import { playGoodRepTone, playWarningTone } from '../lib/audioFeedback';
+import { openCameraWithRetry } from '../lib/openCamera';
 import { POINTS_PER_VALID_REP } from '../lib/progressiveOverload';
 import { DEPTH_ANGLE, DESCENT_ANGLE, MIN_DESCENT_MS, STANDING_ANGLE } from '../lib/squatThresholds';
 import {
@@ -113,20 +114,23 @@ function drawSkeleton(
 
   ctx.save();
   ctx.lineCap = 'round';
-  ctx.shadowBlur = 14;
 
+  // Glow = a wide translucent stroke under a solid one (canvas shadowBlur is too slow per frame).
   for (const { start, end } of connections) {
     if (start < FIRST_BODY_LANDMARK || end < FIRST_BODY_LANDMARK) continue;
     if (!isVisible(start) || !isVisible(end)) continue;
     const isActive = activeJoints.has(start) && activeJoints.has(end);
     const color = legAlert && isLeg(start) && isLeg(end) ? ALERT_RED : CYAN;
+    const lineWidth = isActive ? 6 : 3;
     ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.lineWidth = isActive ? 6 : 3;
-    ctx.globalAlpha = isActive ? 1 : 0.7;
     ctx.beginPath();
     ctx.moveTo(landmarks[start].x * width, landmarks[start].y * height);
     ctx.lineTo(landmarks[end].x * width, landmarks[end].y * height);
+    ctx.globalAlpha = 0.25;
+    ctx.lineWidth = lineWidth * 3;
+    ctx.stroke();
+    ctx.globalAlpha = isActive ? 1 : 0.75;
+    ctx.lineWidth = lineWidth;
     ctx.stroke();
   }
 
@@ -154,8 +158,6 @@ function drawAngleReadout(ctx: CanvasRenderingContext2D, knee: Point, angle: num
   ctx.fillStyle = 'rgba(5, 12, 20, 0.75)';
   ctx.fillRect(x - 8, y - 22, textWidth + 16, 32);
   ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
   ctx.fillText(label, x, y);
   ctx.restore();
 }
@@ -443,10 +445,13 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
 
     const startCamera = async () => {
       // Stored immediately so release() can stop it even if play() fails or we unmount mid-start.
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: VIDEO_WIDTH }, height: { ideal: VIDEO_HEIGHT }, facingMode: 'user' },
-        audio: false,
-      });
+      stream = await openCameraWithRetry(
+        {
+          video: { width: { ideal: VIDEO_WIDTH }, height: { ideal: VIDEO_HEIGHT }, facingMode: 'user' },
+          audio: false,
+        },
+        () => cancelled,
+      );
       const video = videoRef.current;
       if (!video || cancelled) return;
       video.srcObject = stream;
@@ -457,7 +462,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
       }
     };
 
-    (async () => {
+    const start = async () => {
       // Load the model while the camera permission prompt is open; settle both before deciding.
       const [modelResult, cameraResult] = await Promise.allSettled([createLandmarker(), startCamera()]);
       if (cancelled) {
@@ -476,9 +481,13 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
       }
       setStatus('ready');
       rafId = requestAnimationFrame(renderFrame);
-    })();
+    };
+
+    // Deferred by one tick so React's dev-mode double mount doesn't open the camera twice at once.
+    const startTimer = setTimeout(() => void start(), 0);
 
     return () => {
+      clearTimeout(startTimer);
       cancelled = true;
       cancelAnimationFrame(rafId);
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);

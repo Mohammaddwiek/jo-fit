@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NormalizedLandmark, PoseLandmarker } from '@mediapipe/tasks-vision';
+import { openCameraWithRetry } from './openCamera';
 
 // Self-hosted (see scripts/copy-mediapipe.mjs) so the demo doesn't depend on venue Wi-Fi.
 const WASM_PATH = '/mediapipe/wasm';
@@ -96,10 +97,13 @@ export function usePoseCamera(onFrame: (frame: PoseFrame) => void) {
 
     const startCamera = async () => {
       // Stored immediately so release() can stop it even if play() fails or we unmount mid-start.
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: VIDEO_WIDTH }, height: { ideal: VIDEO_HEIGHT }, facingMode: 'user' },
-        audio: false,
-      });
+      stream = await openCameraWithRetry(
+        {
+          video: { width: { ideal: VIDEO_WIDTH }, height: { ideal: VIDEO_HEIGHT }, facingMode: 'user' },
+          audio: false,
+        },
+        () => cancelled,
+      );
       const video = videoRef.current;
       if (!video || cancelled) return;
       video.srcObject = stream;
@@ -112,7 +116,7 @@ export function usePoseCamera(onFrame: (frame: PoseFrame) => void) {
       setStatus('stopped');
     };
 
-    (async () => {
+    const start = async () => {
       const [modelResult, cameraResult] = await Promise.allSettled([createLandmarker(), startCamera()]);
       if (cancelled) {
         release();
@@ -130,9 +134,15 @@ export function usePoseCamera(onFrame: (frame: PoseFrame) => void) {
       }
       setStatus('ready');
       rafId = requestAnimationFrame(loop);
-    })();
+    };
+
+    // Deferred by one tick: React's dev-mode mount → unmount → mount then cancels the first
+    // start before it ever opens the camera or builds a second GPU model, instead of two
+    // overlapping camera opens (which Windows webcams reject as "device in use").
+    const startTimer = setTimeout(() => void start(), 0);
 
     return () => {
+      clearTimeout(startTimer);
       cancelled = true;
       release();
     };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import BicepSetResults from './BicepSetResults';
 import { playGoodRepTone, playWarningTone } from '../lib/audioFeedback';
@@ -31,6 +31,18 @@ const FIRST_BODY_LANDMARK = 11;
 /** Shoulders, elbows and wrists (11–16): turned red while the elbows flare. */
 const ARM_LANDMARKS = new Set([11, 12, 13, 14, 15, 16]);
 const FEEDBACK_DURATION_MS = 2000;
+const HUD_ANGLE_INTERVAL_MS = 100;
+
+interface Hud {
+  frameIssue: FrameIssue | null;
+  frameMessage: string;
+  angle: number | null;
+  phase: CurlPhase;
+  viewMode: CurlViewMode;
+  flaring: boolean;
+}
+
+const INITIAL_HUD: Hud = { frameIssue: null, frameMessage: '', angle: null, phase: 'READY', viewMode: 'FRONT', flaring: false };
 
 export interface BicepTrackerProps {
   config: WorkoutConfig;
@@ -38,6 +50,8 @@ export interface BicepTrackerProps {
   preview: (result: SquatWorkoutResult) => SessionSummary;
   onSave: (result: SquatWorkoutResult) => void;
   onRetry: () => void;
+  /** Reports whether the camera is live, so the page's LIVE pill can turn off when the set ends. */
+  onLiveChange?: (live: boolean) => void;
 }
 
 function drawSkeleton(
@@ -55,19 +69,23 @@ function drawSkeleton(
 
   ctx.save();
   ctx.lineCap = 'round';
-  ctx.shadowBlur = 14;
+  // Glow = a wide translucent stroke under a solid one. Canvas shadowBlur looks similar but is
+  // far too slow to run on every line, every frame, next to the pose model.
   for (const { start, end } of connections) {
     if (start < FIRST_BODY_LANDMARK || end < FIRST_BODY_LANDMARK) continue;
     if (!isVisible(start) || !isVisible(end)) continue;
     const isActive = activeJoints.has(start) && activeJoints.has(end);
     const color = armAlert && ARM_LANDMARKS.has(start) && ARM_LANDMARKS.has(end) ? ALERT_RED : CYAN;
+    const width1 = isActive ? 6 : 3;
     ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.lineWidth = isActive ? 6 : 3;
-    ctx.globalAlpha = isActive ? 1 : 0.7;
     ctx.beginPath();
     ctx.moveTo(landmarks[start].x * width, landmarks[start].y * height);
     ctx.lineTo(landmarks[end].x * width, landmarks[end].y * height);
+    ctx.globalAlpha = 0.25;
+    ctx.lineWidth = width1 * 3;
+    ctx.stroke();
+    ctx.globalAlpha = isActive ? 1 : 0.75;
+    ctx.lineWidth = width1;
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -92,8 +110,6 @@ function drawAngleReadout(ctx: CanvasRenderingContext2D, anchor: Point, angle: n
   ctx.fillStyle = 'rgba(5, 12, 20, 0.75)';
   ctx.fillRect(10, -36, textWidth + 16, 32);
   ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
   ctx.fillText(label, 18, -12);
   ctx.restore();
 }
@@ -107,7 +123,7 @@ const PHASE_LABEL: Record<CurlPhase, string> = {
   LOWERING: 'LOWERING',
 };
 
-export default function BicepTracker({ config, preview, onSave, onRetry }: BicepTrackerProps) {
+export default function BicepTracker({ config, preview, onSave, onRetry, onLiveChange }: BicepTrackerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sessionRef = useRef(createCurlSession());
   const repsRef = useRef<CurlRep[]>([]);
@@ -117,13 +133,26 @@ export default function BicepTracker({ config, preview, onSave, onRetry }: Bicep
   const [reps, setReps] = useState<CurlRep[]>([]);
   const [ended, setEnded] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [frameIssue, setFrameIssue] = useState<FrameIssue | null>(null);
-  const [frameMessage, setFrameMessage] = useState('');
-  const [angle, setAngle] = useState<number | null>(null);
-  const [phase, setPhase] = useState<CurlPhase>('READY');
-  const [viewMode, setViewMode] = useState<CurlViewMode>('FRONT');
-  const [flaring, setFlaring] = useState(false);
+  const [hud, setHud] = useState<Hud>(INITIAL_HUD);
+  const hudRef = useRef<Hud>(INITIAL_HUD);
+  const lastAngleUpdateRef = useRef(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const { frameIssue, frameMessage, angle, phase, viewMode, flaring } = hud;
+
+  /**
+   * One React update per frame at most, and only when something visible changed. The stats-card
+   * angle refreshes 10× per second; the on-video readout is drawn on the canvas every frame.
+   */
+  const pushHud = (next: Hud, now: number) => {
+    const prev = hudRef.current;
+    const angleDue = now - lastAngleUpdateRef.current >= HUD_ANGLE_INTERVAL_MS || (next.angle === null) !== (prev.angle === null);
+    const merged: Hud = { ...next, angle: angleDue ? next.angle : prev.angle };
+    if (angleDue) lastAngleUpdateRef.current = now;
+    const changed = (Object.keys(merged) as (keyof Hud)[]).some((key) => merged[key] !== prev[key]);
+    if (!changed) return;
+    hudRef.current = merged;
+    setHud(merged);
+  };
 
   const showFeedback = (message: string) => {
     setFeedback(message);
@@ -145,21 +174,32 @@ export default function BicepTracker({ config, preview, onSave, onRetry }: Bicep
 
       if (!frame.landmarks) {
         sessionRef.current.reset();
-        setFrameIssue('LOW_VISIBILITY');
-        setFrameMessage('Tracking lost: improve lighting or face the camera');
-        setAngle(null);
-        setFlaring(false);
+        pushHud(
+          {
+            ...hudRef.current,
+            frameIssue: 'LOW_VISIBILITY',
+            frameMessage: 'Tracking lost: improve lighting or face the camera',
+            angle: null,
+            flaring: false,
+          },
+          frame.now,
+        );
         return;
       }
 
       const out = sessionRef.current.step({ landmarks: frame.landmarks, width, height, now: frame.now });
       drawSkeleton(ctx, frame.landmarks, frame.connections, out.arm, width, height, out.flaring);
-      setFrameIssue(out.frameIssue);
-      setFrameMessage(out.frameMessage ?? '');
-      setPhase(out.phase);
-      setViewMode(out.viewMode);
-      setFlaring(out.flaring);
-      setAngle(out.angle === null ? null : Math.round(out.angle));
+      pushHud(
+        {
+          frameIssue: out.frameIssue,
+          frameMessage: out.frameMessage ?? '',
+          phase: out.phase,
+          viewMode: out.viewMode,
+          flaring: out.flaring,
+          angle: out.angle === null ? null : Math.round(out.angle),
+        },
+        frame.now,
+      );
       if (out.angle !== null && out.anchor) {
         const color = out.angle <= CONTRACTED_ANGLE || out.angle >= EXTENDED_ANGLE ? EMERALD : CYAN;
         drawAngleReadout(ctx, out.anchor, out.angle, out.flaring ? ALERT_RED : color);
@@ -190,11 +230,18 @@ export default function BicepTracker({ config, preview, onSave, onRetry }: Bicep
     endedRef.current = true;
     camera.stop();
     setEnded(true);
-    setFlaring(false);
+    hudRef.current = { ...hudRef.current, flaring: false };
+    setHud(hudRef.current);
     setFeedback(null);
   };
   const endSetRef = useRef(endSet);
   endSetRef.current = endSet;
+
+  // "Live" while starting or running; off once the set ends or the camera fails.
+  const cameraLive = (camera.status === 'ready' || camera.status === 'loading') && !ended;
+  useEffect(() => {
+    onLiveChange?.(cameraLive);
+  }, [cameraLive, onLiveChange]);
 
   const validReps = reps.filter((rep) => rep.isValid).length;
   const badReps = reps.length - validReps;
