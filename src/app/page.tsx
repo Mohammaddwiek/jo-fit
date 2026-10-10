@@ -13,14 +13,23 @@ import PostWorkoutModal from '../components/PostWorkoutModal';
 import SideDrawer from '../components/SideDrawer';
 import WorkoutPlanTab from '../components/WorkoutPlanTab';
 import WorkoutSurveyModal from '../components/WorkoutSurveyModal';
-import { ToastProvider } from '../components/ui/Toast';
+import { useToast } from '../components/ui/Toast';
 import { unlockAudio } from '../lib/audioFeedback';
 import { findExercise, type PlanExercise } from '../lib/planGenerator';
-import { useJoFitState, type SessionSummary } from '../lib/useJoFitState';
+import { applyWorkoutResult, useJoFitState, type SessionSummary } from '../lib/useJoFitState';
 import { buildPlanConfig, buildStandaloneConfig, type SquatWorkoutResult } from '../lib/workoutConfig';
 
 // MediaPipe, the camera and the canvas are browser-only, so the tracker never renders on the server.
 const SquatTracker = dynamic(() => import('../components/SquatTracker'), {
+  ssr: false,
+  loading: () => (
+    <div className="grid aspect-[4/3] w-full place-items-center rounded-2xl border border-cyber-cyan/30 bg-[#050C14] font-mono text-sm text-cyber-cyan">
+      Loading tracker…
+    </div>
+  ),
+});
+
+const BicepTracker = dynamic(() => import('../components/BicepTracker'), {
   ssr: false,
   loading: () => (
     <div className="grid aspect-[4/3] w-full place-items-center rounded-2xl border border-cyber-cyan/30 bg-[#050C14] font-mono text-sm text-cyber-cyan">
@@ -62,6 +71,7 @@ export default function Home() {
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [todayIndex, setTodayIndex] = useState<number | null>(null);
+  const showToast = useToast();
 
   // Browser-only values are read after mount so the server and first client render match.
   useEffect(() => {
@@ -77,7 +87,7 @@ export default function Home() {
   const selectedExercise = useMemo<PlanExercise | null>(() => {
     if (!selectedExerciseId || !data.plan) return null;
     const match = findExercise(data.plan, selectedExerciseId);
-    return match?.kind === 'squat' ? match : null;
+    return match?.kind === 'squat' || match?.kind === 'curl' ? match : null;
   }, [data.plan, selectedExerciseId]);
 
   const config = useMemo(
@@ -114,6 +124,18 @@ export default function Home() {
     [finishSet],
   );
 
+  /** Curl sets end in their own Set Results screen, so saving goes straight back to the plan. */
+  const handleCurlSave = (result: SquatWorkoutResult) => {
+    const saved = finishSet(result);
+    setStarted(false);
+    selectTab('plan');
+    showToast(
+      saved.pointsEarned > 0
+        ? `Saved · +${saved.pointsEarned} pts · next curl weight ${saved.nextWeight} kg`
+        : `Saved · ${saved.status} · curl weight ${saved.nextWeight} kg`,
+    );
+  };
+
   const openSos = () => {
     setStarted(false);
     setDrawerOpen(false);
@@ -121,7 +143,7 @@ export default function Home() {
   };
 
   return (
-    <ToastProvider>
+    <>
       <div className="min-h-screen pb-28">
         <AppHeader
           points={data.profile.fitPoints}
@@ -161,17 +183,36 @@ export default function Home() {
                       LIVE · AI TRACKING
                     </span>
                   </div>
-                  <h1 className="text-2xl font-bold text-zinc-100">AI Skeleton Tracking</h1>
-                  <p className="text-xs font-medium text-zinc-400">
-                    Stand 2–3 m back with your full body visible. Side-on is most accurate; facing the camera also works.
-                  </p>
-                  <SquatTracker key={trackerRun} config={config} onFinish={handleFinish} />
+                  {config.exercise === 'curl' ? (
+                    <>
+                      <h1 className="text-2xl font-bold text-zinc-100">AI Skeleton Tracking · Bicep Curls</h1>
+                      <p className="text-xs font-medium text-zinc-400">
+                        Face the camera with your head and torso in frame. Keep elbows pinned and use the full range.
+                      </p>
+                      <BicepTracker
+                        key={trackerRun}
+                        config={config}
+                        preview={(result) => applyWorkoutResult(data, result).summary}
+                        onSave={handleCurlSave}
+                        onRetry={() => setTrackerRun((n) => n + 1)}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <h1 className="text-2xl font-bold text-zinc-100">AI Skeleton Tracking</h1>
+                      <p className="text-xs font-medium text-zinc-400">
+                        Stand 2–3 m back with your full body visible. Side-on is most accurate; facing the camera also works.
+                      </p>
+                      <SquatTracker key={trackerRun} config={config} onFinish={handleFinish} />
+                    </>
+                  )}
                 </div>
               ) : (
                 <WorkoutPlanTab
                   plan={data.plan}
                   survey={data.survey}
                   profile={data.profile}
+                  curlWeight={data.curlWeight}
                   lastSession={data.lastSession}
                   hydrated={hydrated}
                   todayIndex={todayIndex}
@@ -244,6 +285,6 @@ export default function Home() {
           onSaveContact={saveEmergencyContact}
         />
       </div>
-    </ToastProvider>
+    </>
   );
 }

@@ -23,6 +23,12 @@ export type FrameCheck = {
 /** MediaPipe Pose landmark indices used for framing checks. */
 export const LANDMARK = {
   NOSE: 0,
+  LEFT_SHOULDER: 11,
+  RIGHT_SHOULDER: 12,
+  LEFT_ELBOW: 13,
+  RIGHT_ELBOW: 14,
+  LEFT_WRIST: 15,
+  RIGHT_WRIST: 16,
   LEFT_HIP: 23,
   RIGHT_HIP: 24,
   LEFT_KNEE: 25,

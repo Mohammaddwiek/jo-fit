@@ -32,7 +32,8 @@ export interface PlanExercise {
   targetMetric?: string;
   /** Rest length used by the tracker's countdown between sets. */
   restSeconds: number;
-  kind: 'squat' | 'other';
+  /** Exercises the camera can track have their own kind. */
+  kind: 'squat' | 'curl' | 'other';
 }
 
 export interface TrainingDay {
@@ -53,7 +54,8 @@ export interface RecoveryDay {
 
 export type PlanDay = TrainingDay | RecoveryDay;
 
-export const PLAN_VERSION = 2;
+/** v2 added the 7-day schedule, v3 added AI-tracked bicep curls. */
+export const PLAN_VERSION = 3;
 export const DAYS_IN_WEEK = 7;
 
 export interface PlanSummary {
@@ -160,6 +162,14 @@ const ex = (
 
 type DayTemplate = { title: string; exercises: ExerciseTemplate[] };
 
+/** AI-tracked by the bicep curl camera mode. */
+const BICEP_CURL: ExerciseTemplate = {
+  key: 'curl',
+  name: 'Bicep Curls (Dumbbell / EZ-Bar)',
+  region: 'upper',
+  role: 'isolation',
+};
+
 const LOWER_A: DayTemplate = {
   title: 'Lower Body Biomechanics',
   exercises: [
@@ -192,6 +202,7 @@ const UPPER_A: DayTemplate = {
       'Lower Back': 'Seated Back-Supported DB Press',
     }),
     ex('pullup', 'Pull-ups', 'upper', 'compound', { Shoulder: 'Neutral-Grip Lat Pulldown' }),
+    BICEP_CURL,
     ex('face-pull', 'Face Pulls', 'upper', 'isolation'),
   ],
 };
@@ -203,6 +214,7 @@ const UPPER_B: DayTemplate = {
     ex('pulldown', 'Lat Pulldown', 'upper', 'compound', { Shoulder: 'Neutral-Grip Lat Pulldown' }),
     ex('cable-row', 'Seated Cable Row', 'upper', 'compound'),
     ex('lateral', 'Lateral Raises', 'upper', 'isolation', { Shoulder: 'Band External Rotations' }),
+    BICEP_CURL,
     ex('side-plank', 'Side Plank', 'core', 'core'),
   ],
 };
@@ -352,6 +364,7 @@ export function generatePlan(input: SurveyInput): WorkoutPlan {
     difficulty = capDifficulty(difficulty, regionCap(template.region));
 
     const isSquat = template.key === 'squat';
+    const isCurl = template.key === 'curl';
     return {
       id: `d${dayNumber}-${template.key}`,
       name,
@@ -360,13 +373,15 @@ export function generatePlan(input: SurveyInput): WorkoutPlan {
       rest: rest.label,
       restSeconds: rest.seconds,
       difficulty,
-      aiSupported: isSquat,
-      kind: isSquat ? 'squat' : 'other',
+      aiSupported: isSquat || isCurl,
+      kind: isSquat ? 'squat' : isCurl ? 'curl' : 'other',
       targetMetric: isSquat
         ? has('Knee')
           ? 'Knee angle 90–100° (box depth)'
           : 'Knee angle ≤ 90° (parallel)'
-        : undefined,
+        : isCurl
+          ? 'Elbow 150° → 50°, elbows pinned'
+          : undefined,
     };
   };
 

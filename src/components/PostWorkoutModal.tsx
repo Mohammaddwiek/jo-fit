@@ -1,10 +1,27 @@
 'use client';
 
-import { AlertTriangle, Ban, CheckCircle2, ShieldCheck, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Info, ShieldCheck, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
 import Modal from './Modal';
 import { cn } from '../lib/cn';
 import { FORM_SCORE_THRESHOLD } from '../lib/progressiveOverload';
 import type { SessionSummary } from '../lib/useJoFitState';
+import { sumFaults } from '../lib/workoutConfig';
+
+/** One analysis row: check for ok, warning for not ok, neutral info for null. */
+function AnalysisLine({ ok, children }: { ok: boolean | null; children: React.ReactNode }) {
+  return (
+    <p className="mt-2 flex items-start gap-2 text-sm text-zinc-300">
+      {ok === null ? (
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+      ) : ok ? (
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyber-emerald" aria-hidden />
+      ) : (
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cyber-gold" aria-hidden />
+      )}
+      <span>{children}</span>
+    </p>
+  );
+}
 
 interface PostWorkoutModalProps {
   summary: SessionSummary | null;
@@ -43,7 +60,11 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
   if (!summary) return null;
   const { badge, icon: StatusIcon, headline } = STATUS_STYLES[summary.status];
   const totalReps = summary.validReps + summary.badReps;
-  const depthGood = totalReps > 0 && summary.formAccuracy >= FORM_SCORE_THRESHOLD;
+  const hasFaultData = summary.sets.some((set) => set.faults);
+  const faults = sumFaults(summary.sets);
+  // Older sessions have no fault breakdown, so every bad rep was a depth failure.
+  const deepReps = hasFaultData ? totalReps - faults.shallow : summary.validReps;
+  const depthGood = totalReps > 0 && (deepReps / totalReps) * 100 >= FORM_SCORE_THRESHOLD;
 
   return (
     <Modal open onClose={onClose} title={headline} size="max-w-md">
@@ -69,17 +90,39 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
 
         <section className="rounded-2xl border border-line bg-surface-2 p-4">
           <h3 className="text-sm font-bold text-zinc-100">AI Form Analysis</h3>
-          <p className="mt-2 flex items-start gap-2 text-sm text-zinc-300">
-            {depthGood ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyber-emerald" aria-hidden />
-            ) : (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cyber-gold" aria-hidden />
-            )}
-            <span>
-              Knee depth: <span className="font-semibold text-zinc-100">{summary.validReps} of {totalReps}</span> reps reached
-              target depth
-            </span>
-          </p>
+          <AnalysisLine ok={depthGood}>
+            Knee depth: <span className="font-semibold text-zinc-100">{deepReps} of {totalReps}</span> reps reached target
+            depth
+          </AnalysisLine>
+          {hasFaultData && totalReps > 0 && faults.checkedReps === 0 ? (
+            <AnalysisLine ok={null}>Stance &amp; knee checks need a front-facing view</AnalysisLine>
+          ) : (
+            hasFaultData &&
+            totalReps > 0 && (
+              <>
+                <AnalysisLine ok={faults.wideStance === 0}>
+                  Stance width:{' '}
+                  {faults.wideStance === 0 ? (
+                    <span className="font-semibold text-cyber-emerald">OK</span>
+                  ) : (
+                    <span className="font-semibold text-zinc-100">
+                      {faults.wideStance} rep{faults.wideStance === 1 ? '' : 's'} started too wide
+                    </span>
+                  )}
+                </AnalysisLine>
+                <AnalysisLine ok={faults.valgus === 0}>
+                  Knee tracking:{' '}
+                  {faults.valgus === 0 ? (
+                    <span className="font-semibold text-cyber-emerald">Stable</span>
+                  ) : (
+                    <span className="font-semibold text-zinc-100">
+                      {faults.valgus} rep{faults.valgus === 1 ? '' : 's'} caved in
+                    </span>
+                  )}
+                </AnalysisLine>
+              </>
+            )
+          )}
           {summary.sets.length > 1 && (
             <p className="mt-2 font-mono text-xs tabular-nums text-zinc-400">
               {summary.sets
@@ -88,7 +131,9 @@ export default function PostWorkoutModal({ summary, onClose, onViewLeaderboard }
               {summary.sets.length < summary.setsPlanned && ` · ${summary.setsPlanned - summary.sets.length} skipped`}
             </p>
           )}
-          <p className="mt-2 text-[11px] text-zinc-500">Target: {summary.targetReps} reps per set. Form score = share of reps reaching depth.</p>
+          <p className="mt-2 text-[11px] text-zinc-500">
+            Target: {summary.targetReps} reps per set. Form score = share of reps passing depth, stance and knee checks.
+          </p>
         </section>
 
         <section className="rounded-2xl border border-line bg-surface-2 p-4">

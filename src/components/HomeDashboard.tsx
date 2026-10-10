@@ -44,7 +44,8 @@ export default function HomeDashboard({
   const preview = [...ranked.slice(0, 3), ...(me.rank > 3 ? [me] : [])];
 
   const today = data.plan && todayIndex !== null ? data.plan.schedule[todayIndex] : null;
-  const todaySquat = today && isTrainingDay(today) ? today.exercises.find((e) => e.kind === 'squat') ?? null : null;
+  // Today's first camera-tracked exercise: squats on lower days, curls on upper days.
+  const todaySquat = today && isTrainingDay(today) ? today.exercises.find((e) => e.aiSupported) ?? null : null;
 
   return (
     <div className="flex flex-col gap-4">

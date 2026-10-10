@@ -15,7 +15,14 @@ import {
   type SurveyInput,
   type WorkoutPlan,
 } from '../lib/planGenerator';
-import { DELOAD_FACTOR, FORM_SCORE_THRESHOLD, WEIGHT_INCREMENT_KG, type UserProfile } from '../lib/progressiveOverload';
+import {
+  CURL_WEIGHT_INCREMENT_KG,
+  DELOAD_FACTOR,
+  FORM_SCORE_THRESHOLD,
+  WEIGHT_INCREMENT_KG,
+  type UserProfile,
+} from '../lib/progressiveOverload';
+import { CONTRACTED_ANGLE, EXTENDED_ANGLE } from '../lib/curlLogic';
 import { DEPTH_ANGLE, KNEE_SAFE_VALID_ANGLE } from '../lib/squatThresholds';
 import type { SessionSummary } from '../lib/useJoFitState';
 
@@ -23,6 +30,7 @@ interface WorkoutPlanTabProps {
   plan: WorkoutPlan | null;
   survey: SurveyInput | null;
   profile: UserProfile;
+  curlWeight: number;
   lastSession: SessionSummary | null;
   hydrated: boolean;
   /** 0-based index of today's day in the week (Sunday = 0), or null before mount. */
@@ -37,12 +45,14 @@ const DIFFICULTY_BADGE: Record<Difficulty, string> = {
   High: 'border-rose-500/50 bg-rose-500/10 text-rose-400',
 };
 
-const DEMO_TOAST = 'Computer vision model currently trained for Squats. Next update adds Upper Body tracking.';
+const DEMO_TOAST =
+  'Computer vision model currently trained for Squats and Bicep Curls. Next update adds more upper-body tracking.';
 
 export default function WorkoutPlanTab({
   plan,
   survey,
   profile,
+  curlWeight,
   lastSession,
   hydrated,
   todayIndex,
@@ -183,6 +193,7 @@ export default function WorkoutPlanTab({
                           exercise={exercise}
                           plan={plan}
                           profile={profile}
+                          curlWeight={curlWeight}
                           lastSession={lastSession}
                           kneeSafe={kneeSafe}
                           onSelect={onSelectExercise}
@@ -233,15 +244,23 @@ interface ExerciseCardProps {
   exercise: PlanExercise;
   plan: WorkoutPlan;
   profile: UserProfile;
+  curlWeight: number;
   lastSession: SessionSummary | null;
   kneeSafe: boolean;
   onSelect: (exercise: PlanExercise) => void;
 }
 
-function ExerciseCard({ exercise, plan, profile, lastSession, kneeSafe, onSelect }: ExerciseCardProps) {
+function curlProgressText(curlWeight: number, lastSession: SessionSummary | null): string {
+  if (lastSession?.exercise !== 'curl') return 'Complete a tracked curl set to unlock progression.';
+  return `Last curl set: ${lastSession.status} — next: ${curlWeight} kg`;
+}
+
+function ExerciseCard({ exercise, plan, profile, curlWeight, lastSession, kneeSafe, onSelect }: ExerciseCardProps) {
   const [metricsOpen, setMetricsOpen] = useState(false);
   const showToast = useToast();
   const isSquat = exercise.kind === 'squat';
+  const isCurl = exercise.kind === 'curl';
+  const tracked = isSquat || isCurl;
   const metricsId = `${exercise.id}-overload`;
 
   const metrics = [
@@ -249,10 +268,20 @@ function ExerciseCard({ exercise, plan, profile, lastSession, kneeSafe, onSelect
       label: 'Current Working Set',
       value: isSquat
         ? `${workingLoad(profile)} × ${exercise.reps} reps · ${exercise.sets} sets`
-        : `${exercise.sets} × ${exercise.reps} @ RPE ${plan.rpe}`,
-      note: isSquat ? nextSessionText(profile, lastSession) : 'Load tracking arrives with upper-body vision.',
+        : isCurl
+          ? `${curlWeight} kg × ${exercise.reps} reps · ${exercise.sets} sets`
+          : `${exercise.sets} × ${exercise.reps} @ RPE ${plan.rpe}`,
+      note: isSquat
+        ? nextSessionText(profile, lastSession)
+        : isCurl
+          ? curlProgressText(curlWeight, lastSession)
+          : 'Load tracking arrives with more upper-body vision models.',
     },
-    { label: 'Overload Rule', value: `+${WEIGHT_INCREMENT_KG} kg`, note: `When every set hits target reps with form ≥ ${FORM_SCORE_THRESHOLD}%.` },
+    {
+      label: 'Overload Rule',
+      value: `+${isCurl ? CURL_WEIGHT_INCREMENT_KG : WEIGHT_INCREMENT_KG} kg`,
+      note: `When ${isCurl ? 'the set hits' : 'every set hits'} target reps with form ≥ ${FORM_SCORE_THRESHOLD}%.`,
+    },
     { label: 'Form Gate', value: `≥ ${FORM_SCORE_THRESHOLD}%`, note: 'Below it, the load is held until form improves.' },
     {
       label: 'Deload Safety Threshold',
@@ -267,9 +296,16 @@ function ExerciseCard({ exercise, plan, profile, lastSession, kneeSafe, onSelect
       note: kneeSafe ? 'Knee-safe box depth.' : 'Thigh parallel to the floor.',
     });
   }
+  if (isCurl) {
+    metrics.push({
+      label: 'Range of Motion',
+      value: `${EXTENDED_ANGLE}° → ${CONTRACTED_ANGLE}°`,
+      note: 'Full extension at the bottom, full squeeze at the top, elbows pinned.',
+    });
+  }
 
   return (
-    <article className={cn('flex flex-col rounded-xl border bg-surface-2 p-4', isSquat ? 'border-cyber-emerald/40' : 'border-line')}>
+    <article className={cn('flex flex-col rounded-xl border bg-surface-2 p-4', tracked ? 'border-cyber-emerald/40' : 'border-line')}>
       <div className="flex items-start justify-between gap-2">
         <h4 className="font-bold leading-snug text-zinc-100">{exercise.name}</h4>
         <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', DIFFICULTY_BADGE[exercise.difficulty])}>
@@ -301,7 +337,7 @@ function ExerciseCard({ exercise, plan, profile, lastSession, kneeSafe, onSelect
           <ChevronDown className={cn('h-3 w-3 transition-transform', metricsOpen && 'rotate-180')} aria-hidden />
         </button>
 
-        {isSquat ? (
+        {tracked ? (
           <button
             type="button"
             onClick={() => onSelect(exercise)}

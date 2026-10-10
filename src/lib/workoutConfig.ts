@@ -1,3 +1,4 @@
+import type { CurlRep } from './curlLogic';
 import type { PlanExercise } from './planGenerator';
 import { DEPTH_ANGLE, KNEE_SAFE_TOO_DEEP_ANGLE, KNEE_SAFE_VALID_ANGLE } from './squatThresholds';
 
@@ -8,8 +9,11 @@ export interface DepthConfig {
   tooDeepAngle?: number;
 }
 
+export type ExerciseType = 'squat' | 'curl';
+
 export interface WorkoutConfig {
   source: 'standalone' | 'plan';
+  exercise: ExerciseType;
   exerciseName: string;
   sets: number;
   targetReps: number;
@@ -17,20 +21,48 @@ export interface WorkoutConfig {
   depth: DepthConfig;
 }
 
+/** Why bad reps failed, plus how many reps had front-view stance/knee checks applied. */
+export interface FormFaults {
+  shallow: number;
+  wideStance: number;
+  valgus: number;
+  checkedReps: number;
+}
+
 export interface SquatSetResult {
   validReps: number;
   badReps: number;
+  /** Absent on sessions recorded before form checks existed. */
+  faults?: FormFaults;
+  /** Per-rep log for bicep curl sets. */
+  curlReps?: CurlRep[];
+}
+
+export const EMPTY_FAULTS: FormFaults = { shallow: 0, wideStance: 0, valgus: 0, checkedReps: 0 };
+
+export function sumFaults(sets: SquatSetResult[]): FormFaults {
+  return sets.reduce<FormFaults>(
+    (total, set) => ({
+      shallow: total.shallow + (set.faults?.shallow ?? 0),
+      wideStance: total.wideStance + (set.faults?.wideStance ?? 0),
+      valgus: total.valgus + (set.faults?.valgus ?? 0),
+      checkedReps: total.checkedReps + (set.faults?.checkedReps ?? 0),
+    }),
+    EMPTY_FAULTS,
+  );
 }
 
 export interface SquatWorkoutResult {
   source: WorkoutConfig['source'];
+  /** Absent means squat (results recorded before curls existed). */
+  exercise?: ExerciseType;
   exerciseName: string;
   setsPlanned: number;
   targetReps: number;
   sets: SquatSetResult[];
   validReps: number;
   badReps: number;
-  /** Share of all reps that reached depth, as a percentage (0–100). */
+  /** Share of all reps that passed depth, stance and knee checks, as a percentage (0–100). */
   formAccuracy: number;
 }
 
@@ -48,6 +80,7 @@ export function parseRepTarget(reps: string): number {
 export function buildStandaloneConfig(targetReps: number, kneeSafe: boolean): WorkoutConfig {
   return {
     source: 'standalone',
+    exercise: 'squat',
     exerciseName: 'Barbell / Bodyweight Squats',
     sets: 1,
     targetReps,
@@ -57,10 +90,13 @@ export function buildStandaloneConfig(targetReps: number, kneeSafe: boolean): Wo
 }
 
 export function buildPlanConfig(exercise: PlanExercise, kneeSafe: boolean): WorkoutConfig {
+  const isCurl = exercise.kind === 'curl';
   return {
     source: 'plan',
+    exercise: isCurl ? 'curl' : 'squat',
     exerciseName: exercise.name,
-    sets: Math.max(1, exercise.sets),
+    // Curls run one set per launch, each ending in the Set Results screen.
+    sets: isCurl ? 1 : Math.max(1, exercise.sets),
     targetReps: parseRepTarget(exercise.reps),
     restSeconds: exercise.restSeconds,
     depth: kneeSafe ? KNEE_SAFE_DEPTH : NORMAL_DEPTH,

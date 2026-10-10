@@ -19,6 +19,8 @@ export interface SessionResult {
 }
 
 export const WEIGHT_INCREMENT_KG = 2.5;
+/** Dumbbell curls progress in smaller jumps than squats. */
+export const CURL_WEIGHT_INCREMENT_KG = 1;
 export const REP_INCREMENT_BODYWEIGHT = 1;
 export const FORM_SCORE_THRESHOLD = 80;
 export const POINTS_PER_VALID_REP = 10;
@@ -35,12 +37,14 @@ const roundTo = (value: number, decimals: number): number => {
  * @param formScore Form accuracy as a percentage (0–100).
  * @param pointsReps Valid reps to award points for. Defaults to `completedReps`; a
  *   multi-set workout passes its total valid reps while `completedReps` is its weakest set.
+ * @param weightIncrement Load added on overload (kg). Defaults to the squat increment.
  */
 export function calculateNextSession(
   currentProfile: UserProfile,
   completedReps: number,
   formScore: number,
   pointsReps: number = completedReps,
+  weightIncrement: number = WEIGHT_INCREMENT_KG,
 ): SessionResult {
   const isBodyweight = currentProfile.currentWeight <= 0;
   const hitTarget = completedReps >= currentProfile.targetReps;
@@ -54,7 +58,7 @@ export function calculateNextSession(
         ...currentProfile,
         currentWeight: isBodyweight
           ? currentProfile.currentWeight
-          : currentProfile.currentWeight + WEIGHT_INCREMENT_KG,
+          : currentProfile.currentWeight + weightIncrement,
         targetReps: isBodyweight
           ? currentProfile.targetReps + REP_INCREMENT_BODYWEIGHT
           : currentProfile.targetReps,

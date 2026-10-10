@@ -10,8 +10,8 @@ import {
 } from '../data/mockData';
 import { currentUserRank } from './leaderboard';
 import { generatePlan, PLAN_VERSION, type SurveyInput, type WorkoutPlan } from './planGenerator';
-import { calculateNextSession, type SessionStatus, type UserProfile } from './progressiveOverload';
-import type { SquatSetResult, SquatWorkoutResult } from './workoutConfig';
+import { calculateNextSession, CURL_WEIGHT_INCREMENT_KG, type SessionStatus, type UserProfile } from './progressiveOverload';
+import type { ExerciseType, SquatSetResult, SquatWorkoutResult } from './workoutConfig';
 
 const STORAGE_KEY = 'jofit:v1';
 const MIN_SET_COMPLETION = 0.5;
@@ -21,6 +21,8 @@ export type SummaryStatus = SessionStatus | 'Set Discarded';
 export interface SessionSummary {
   id: string;
   completedAt: string;
+  /** Absent on sessions saved before curls existed (those were squats). */
+  exercise?: ExerciseType;
   exerciseName: string;
   status: SummaryStatus;
   sets: SquatSetResult[];
@@ -45,7 +47,10 @@ export interface EmergencyContact {
 }
 
 export interface JoFitData {
+  /** Squat progression lives in profile.currentWeight. */
   profile: UserProfile;
+  /** Bicep curl working weight (kg), progressed separately from squats. */
+  curlWeight: number;
   arabiRewardPoints: number;
   monthlyPoints: number;
   lastFormAccuracy: number | null;
@@ -57,6 +62,7 @@ export interface JoFitData {
 
 export const SEED: JoFitData = {
   profile: userSeed.profile,
+  curlWeight: userSeed.curlWeight,
   arabiRewardPoints: userSeed.arabiRewardPoints,
   monthlyPoints: userSeed.monthlyPoints,
   lastFormAccuracy: userSeed.lastFormAccuracy,
@@ -106,6 +112,7 @@ export function sanitize(raw: unknown): JoFitData {
 
   return {
     profile,
+    curlWeight: isNumber(raw.curlWeight) && raw.curlWeight > 0 ? raw.curlWeight : SEED.curlWeight,
     arabiRewardPoints: numberOr(raw.arabiRewardPoints, SEED.arabiRewardPoints),
     monthlyPoints: numberOr(raw.monthlyPoints, SEED.monthlyPoints),
     lastFormAccuracy: isNumber(raw.lastFormAccuracy) ? raw.lastFormAccuracy : SEED.lastFormAccuracy,
@@ -147,6 +154,7 @@ export function applyWorkoutResult(
   now: Date = new Date(),
 ): { data: JoFitData; summary: SessionSummary } {
   const { profile } = data;
+  const isCurl = result.exercise === 'curl';
   const totalReps = result.validReps + result.badReps;
   const weakestSet = result.sets.length > 0 ? Math.min(...result.sets.map((set) => set.validReps)) : 0;
   const discarded =
@@ -154,11 +162,12 @@ export function applyWorkoutResult(
     result.sets.length * 2 < result.setsPlanned ||
     weakestSet < Math.ceil(result.targetReps * MIN_SET_COMPLETION);
 
-  const isBodyweight = profile.currentWeight <= 0;
+  const isBodyweight = !isCurl && profile.currentWeight <= 0;
   const rankBefore = rankFor(data.monthlyPoints, profile.currentWeight, data.lastFormAccuracy);
   const base = {
     id: `${now.getTime()}`,
     completedAt: now.toISOString(),
+    exercise: result.exercise ?? 'squat',
     exerciseName: result.exerciseName,
     sets: result.sets,
     setsPlanned: result.setsPlanned,
@@ -167,8 +176,8 @@ export function applyWorkoutResult(
     badReps: result.badReps,
     formAccuracy: result.formAccuracy,
     isBodyweight,
-    previousWeight: profile.currentWeight,
-    previousTargetReps: profile.targetReps,
+    previousWeight: isCurl ? data.curlWeight : profile.currentWeight,
+    previousTargetReps: isCurl ? result.targetReps : profile.targetReps,
     rankBefore,
   };
 
@@ -177,11 +186,41 @@ export function applyWorkoutResult(
       ...base,
       status: 'Set Discarded',
       pointsEarned: 0,
-      nextWeight: profile.currentWeight,
-      nextTargetReps: profile.targetReps,
+      nextWeight: base.previousWeight,
+      nextTargetReps: base.previousTargetReps,
       rankAfter: rankBefore,
     };
     return { data: { ...data, lastSession: summary }, summary };
+  }
+
+  if (isCurl) {
+    // Curls progress their own weight in +1 kg steps; squat load, reps and leaderboard accuracy are untouched.
+    const next = calculateNextSession(
+      { ...profile, currentWeight: data.curlWeight, targetReps: result.targetReps },
+      weakestSet,
+      result.formAccuracy,
+      result.validReps,
+      CURL_WEIGHT_INCREMENT_KG,
+    );
+    const monthlyPoints = data.monthlyPoints + next.pointsEarned;
+    const summary: SessionSummary = {
+      ...base,
+      status: next.status,
+      pointsEarned: next.pointsEarned,
+      nextWeight: next.nextProfile.currentWeight,
+      nextTargetReps: result.targetReps,
+      rankAfter: rankFor(monthlyPoints, profile.currentWeight, data.lastFormAccuracy),
+    };
+    return {
+      data: {
+        ...data,
+        profile: { ...profile, fitPoints: next.nextProfile.fitPoints },
+        curlWeight: next.nextProfile.currentWeight,
+        monthlyPoints,
+        lastSession: summary,
+      },
+      summary,
+    };
   }
 
   const next = calculateNextSession({ ...profile, targetReps: result.targetReps }, weakestSet, result.formAccuracy, result.validReps);

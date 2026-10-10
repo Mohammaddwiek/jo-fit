@@ -3,7 +3,9 @@
  * timeout). Numbers come from the app's own rule constants so they never drift.
  */
 import { FIT_TO_ARABI_RATE } from '../data/mockData';
+import { CONTRACTED_ANGLE, EXTENDED_ANGLE } from './curlLogic';
 import {
+  CURL_WEIGHT_INCREMENT_KG,
   DELOAD_FACTOR,
   FORM_SCORE_THRESHOLD,
   POINTS_PER_VALID_REP,
@@ -37,6 +39,16 @@ const TOPICS: Topic[] = [
       '- Descend under control (~2–3 s), weight balanced over mid-foot.',
       '- Brace your core so your spine stays neutral.',
       '- Sharp or lasting pain? **Stop** and see a physiotherapist. Not medical advice.',
+    ].join('\n'),
+  },
+  {
+    keywords: ['curl', 'bicep', 'elbow'],
+    answer: [
+      '**Bicep curl form**',
+      `- Start from **full extension** (≈${EXTENDED_ANGLE}° at the elbow) and curl until **fully squeezed** (≤ ${CONTRACTED_ANGLE}°).`,
+      '- Keep your **elbows pinned** to your ribs — flaring them outward shifts load off the biceps.',
+      '- Lift and lower under control; no swinging from the hips or shoulders.',
+      `- Jo-Fit curls progress in **+${CURL_WEIGHT_INCREMENT_KG} kg** steps when the set hits target reps with form ≥ ${FORM_SCORE_THRESHOLD}%.`,
     ].join('\n'),
   },
   {

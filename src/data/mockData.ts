@@ -26,6 +26,8 @@ export interface PartnerVoucher {
 
 export interface UserSeed {
   profile: UserProfile;
+  /** Starting bicep curl working weight (kg). */
+  curlWeight: number;
   arabiRewardPoints: number;
   /** This month's points, used for the leaderboard. */
   monthlyPoints: number;
@@ -80,6 +82,7 @@ export const userSeed: UserSeed = {
     targetReps: 10,
     fitPoints: 4850,
   },
+  curlWeight: 10,
   arabiRewardPoints: 0,
   monthlyPoints: 1760,
   lastFormAccuracy: 91,

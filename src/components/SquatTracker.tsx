@@ -14,7 +14,22 @@ import {
 import { playGoodRepTone, playWarningTone } from '../lib/audioFeedback';
 import { POINTS_PER_VALID_REP } from '../lib/progressiveOverload';
 import { DEPTH_ANGLE, DESCENT_ANGLE, MIN_DESCENT_MS, STANDING_ANGLE } from '../lib/squatThresholds';
-import { summarizeSets, type SquatSetResult, type SquatWorkoutResult, type WorkoutConfig } from '../lib/workoutConfig';
+import {
+  classifyRep,
+  createValgusDetector,
+  isKneeCaving,
+  isStanceTooWide,
+  measureStance,
+  type RepFault,
+} from '../lib/stanceAnalysis';
+import {
+  EMPTY_FAULTS,
+  summarizeSets,
+  type FormFaults,
+  type SquatSetResult,
+  type SquatWorkoutResult,
+  type WorkoutConfig,
+} from '../lib/workoutConfig';
 
 // Self-hosted (see scripts/copy-mediapipe.mjs) so the demo doesn't depend on venue Wi-Fi.
 const WASM_PATH = '/mediapipe/wasm';
@@ -43,6 +58,16 @@ const FIRST_BODY_LANDMARK = 11;
 const CYAN = '#00E5FF';
 const EMERALD = '#00E676';
 const AMBER = '#F59E0B';
+const ALERT_RED = '#EF4444';
+
+/** Hips, knees, ankles and feet (MediaPipe 23–32): turned red when stance or knee form fails. */
+const FIRST_LEG_LANDMARK = 23;
+
+const FAULT_MESSAGES: Record<RepFault, (validAngle: number) => string> = {
+  wideStance: () => 'Stance too wide — rep not counted',
+  valgus: () => 'Knees caved in — rep not counted. Push knees out',
+  shallow: (validAngle) => `Go Lower: Reach ${validAngle}°`,
+};
 
 type Phase = 'STANDING' | 'DESCENDING' | 'BOTTOM' | 'ASCENDING';
 type ViewMode = 'SIDE' | 'FRONT';
@@ -79,21 +104,24 @@ function drawSkeleton(
   activeSide: Side,
   width: number,
   height: number,
+  legAlert: boolean,
 ) {
   const leg = LEGS[activeSide];
   const activeJoints = new Set([leg.hip, leg.knee, leg.ankle]);
   const isVisible = (i: number) => (landmarks[i]?.visibility ?? 0) >= MIN_DRAW_VISIBILITY;
+  const isLeg = (i: number) => i >= FIRST_LEG_LANDMARK;
 
   ctx.save();
   ctx.lineCap = 'round';
-  ctx.strokeStyle = CYAN;
-  ctx.shadowColor = CYAN;
   ctx.shadowBlur = 14;
 
   for (const { start, end } of connections) {
     if (start < FIRST_BODY_LANDMARK || end < FIRST_BODY_LANDMARK) continue;
     if (!isVisible(start) || !isVisible(end)) continue;
     const isActive = activeJoints.has(start) && activeJoints.has(end);
+    const color = legAlert && isLeg(start) && isLeg(end) ? ALERT_RED : CYAN;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
     ctx.lineWidth = isActive ? 6 : 3;
     ctx.globalAlpha = isActive ? 1 : 0.7;
     ctx.beginPath();
@@ -103,9 +131,9 @@ function drawSkeleton(
   }
 
   ctx.globalAlpha = 1;
-  ctx.fillStyle = '#FFFFFF';
   for (let i = FIRST_BODY_LANDMARK; i < landmarks.length; i++) {
     if (!isVisible(i)) continue;
+    ctx.fillStyle = legAlert && isLeg(i) ? ALERT_RED : '#FFFFFF';
     ctx.beginPath();
     ctx.arc(landmarks[i].x * width, landmarks[i].y * height, activeJoints.has(i) ? 6 : 4, 0, Math.PI * 2);
     ctx.fill();
@@ -166,6 +194,8 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
   const [currentAngle, setCurrentAngle] = useState<number | null>(null);
   const [validReps, setValidReps] = useState(0);
   const [badReps, setBadReps] = useState(0);
+  const [faults, setFaults] = useState<FormFaults>(EMPTY_FAULTS);
+  const [stanceWide, setStanceWide] = useState(false);
   const [completedSets, setCompletedSets] = useState<SquatSetResult[]>([]);
   const [restRemaining, setRestRemaining] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ message: string; tone: 'warn' | 'info' } | null>(null);
@@ -188,7 +218,13 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
       lockedSide: null as Side | null,
       descentStartedAt: 0,
       thighLength: { left: 0, right: 0 } as Record<Side, number>,
+      // Front-view form checks for the current rep.
+      stanceWideNow: false,
+      stanceWideAtStart: false,
+      valgusDetected: false,
+      checkedThisRep: false,
     };
+    const valgus = createValgusDetector();
 
     /** Releases whatever was created. Safe to call more than once. */
     const release = () => {
@@ -211,20 +247,42 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
     };
 
     const finishRep = () => {
-      const { validAngle, tooDeepAngle } = configRef.current.depth;
-      if (tracker.minAngle > validAngle) {
+      const { depth } = configRef.current;
+      const verdict = classifyRep({
+        minAngle: tracker.minAngle,
+        depth,
+        wideStanceAtStart: tracker.stanceWideAtStart,
+        valgusDetected: tracker.valgusDetected,
+      });
+      const checked = tracker.checkedThisRep;
+      setFaults((prev) => ({
+        shallow: prev.shallow + (verdict.faults.includes('shallow') ? 1 : 0),
+        wideStance: prev.wideStance + (verdict.faults.includes('wideStance') ? 1 : 0),
+        valgus: prev.valgus + (verdict.faults.includes('valgus') ? 1 : 0),
+        checkedReps: prev.checkedReps + (checked ? 1 : 0),
+      }));
+
+      if (!verdict.valid) {
         setBadReps((n) => n + 1);
         playWarningTone();
-        showFeedback(`Go Lower: Reach ${validAngle}°`, 'warn');
+        showFeedback(FAULT_MESSAGES[verdict.faults[0]](depth.validAngle), 'warn');
         return;
       }
       setValidReps((n) => n + 1);
-      if (tooDeepAngle !== undefined && tracker.minAngle < tooDeepAngle) {
+      if (verdict.tooDeep) {
         playWarningTone();
         showFeedback('Too Deep — Protect Your Knee', 'warn');
       } else {
         playGoodRepTone();
       }
+    };
+
+    /** Starts a fresh set of form checks when a descent begins. */
+    const startRepChecks = (measured: boolean) => {
+      tracker.stanceWideAtStart = tracker.stanceWideNow;
+      tracker.valgusDetected = false;
+      tracker.checkedThisRep = measured;
+      valgus.reset();
     };
 
     const updateStateMachine = (angle: number) => {
@@ -265,8 +323,10 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
 
     const resetTracking = () => {
       tracker.smoothedAngle = null;
+      tracker.stanceWideNow = false;
       if (tracker.phase !== 'STANDING') enterPhase('STANDING');
       setCurrentAngle(null);
+      setStanceWide(false);
     };
 
     const renderFrame = () => {
@@ -294,11 +354,11 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
 
       // The leg is locked for the whole rep so a visibility flicker can't swap legs mid-squat.
       const side = tracker.lockedSide ?? pickVisibleSide(landmarks);
-      drawSkeleton(ctx, landmarks, connections, side, width, height);
 
       const frameCheck = isUserInFrame(landmarks, side);
       setFrameIssue(frameCheck.code ?? null);
       if (!frameCheck.inFrame || pausedRef.current) {
+        drawSkeleton(ctx, landmarks, connections, side, width, height, false);
         resetTracking();
         return;
       }
@@ -328,9 +388,32 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
           : tracker.smoothedAngle + ANGLE_SMOOTHING * (rawAngle - tracker.smoothedAngle);
       tracker.smoothedAngle = angle;
 
+      // Stance and knee checks need left-right distances, which only a front view shows.
+      const stance = mode === 'FRONT' ? measureStance(landmarks) : null;
+      if (tracker.phase === 'STANDING') tracker.stanceWideNow = stance ? isStanceTooWide(stance) : false;
+
       const wasStanding = tracker.phase === 'STANDING';
       updateStateMachine(angle);
-      if (wasStanding && tracker.phase === 'DESCENDING') tracker.lockedSide = side;
+      if (wasStanding && tracker.phase === 'DESCENDING') {
+        tracker.lockedSide = side;
+        startRepChecks(stance !== null);
+      }
+
+      let kneesCaving = false;
+      if (tracker.phase !== 'STANDING' && stance) {
+        tracker.checkedThisRep = true;
+        kneesCaving = isKneeCaving(stance);
+        if (valgus.update(kneesCaving) && !tracker.valgusDetected) {
+          tracker.valgusDetected = true;
+          playWarningTone();
+          showFeedback('Knees caving in! Push knees out', 'warn');
+        }
+      }
+
+      const standing = tracker.phase === 'STANDING';
+      setStanceWide(standing && tracker.stanceWideNow);
+      const legAlert = standing ? tracker.stanceWideNow : kneesCaving || tracker.stanceWideAtStart;
+      drawSkeleton(ctx, landmarks, connections, side, width, height, legAlert);
 
       setCurrentAngle(Math.round(angle));
 
@@ -428,7 +511,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
     [config, onFinish],
   );
 
-  const currentSet: SquatSetResult = { validReps, badReps };
+  const currentSet: SquatSetResult = { validReps, badReps, faults };
   const setNumber = Math.min(completedSets.length + 1, config.sets);
   const isLastSet = completedSets.length + 1 >= config.sets;
   const isMultiSet = config.sets > 1;
@@ -442,6 +525,7 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
     setCompletedSets(sets);
     setValidReps(0);
     setBadReps(0);
+    setFaults(EMPTY_FAULTS);
     if (config.restSeconds > 0) setRestRemaining(config.restSeconds);
   };
 
@@ -494,6 +578,14 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
             ⚠️ STEP BACK: Make sure your full body is visible
           </div>
         )}
+        {status === 'ready' && frameIssue === null && stanceWide && !resting && (
+          <div
+            role="alert"
+            className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full bg-alert px-4 py-2 text-center text-sm font-extrabold tracking-wide text-white shadow-glow-red"
+          >
+            ⚠️ Stance too wide. Bring feet closer to shoulder width.
+          </div>
+        )}
         {status === 'ready' && frameIssue === 'LOW_VISIBILITY' && !resting && (
           <div
             role="alert"
@@ -506,8 +598,8 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
         {feedback && !resting && (
           <div
             role="status"
-            className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-xl px-5 py-3 text-lg font-extrabold text-white sm:text-xl ${
-              feedback.tone === 'warn' ? 'bg-rose-500/90 shadow-glow-red' : 'bg-cyber-cyan/90 text-zinc-950'
+            className={`absolute left-1/2 top-1/2 w-max max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl px-5 py-3 text-center text-lg font-extrabold text-white sm:text-xl ${
+              feedback.tone === 'warn' ? 'bg-alert/90 shadow-glow-red' : 'bg-cyber-cyan/90 text-zinc-950'
             }`}
           >
             {feedback.message}
@@ -533,8 +625,12 @@ export default function SquatTracker({ config, onFinish }: SquatTrackerProps) {
         )}
 
         {status === 'ready' && (
-          <div className="absolute bottom-3 left-3 rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-cyber-cyan">
-            {resting ? 'RESTING' : `${phase} · ${viewMode} VIEW`}
+          <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-md border border-cyber-cyan/40 bg-zinc-950/70 px-2.5 py-1 font-mono text-[11px] tracking-[0.15em] text-cyber-cyan">
+            {resting
+              ? 'RESTING'
+              : viewMode === 'FRONT'
+                ? `${phase} · FRONT VIEW · FORM CHECKS ON`
+                : `${phase} · SIDE VIEW · face camera for stance/knee checks`}
           </div>
         )}
       </div>
